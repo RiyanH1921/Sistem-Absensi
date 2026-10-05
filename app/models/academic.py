@@ -125,6 +125,8 @@ class Student(db.Model):
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'username': self.user.username if self.user else '-',
+            'email': self.user.email if self.user else '-',
             'nis': self.nis,
             'first_name': self.first_name,
             'last_name': self.last_name,

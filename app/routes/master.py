@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, request, jsonify, g
 from app.extensions import db, bcrypt
 from app.models.user import User
@@ -106,33 +107,93 @@ def get_students():
 @role_required('admin', 'superadmin')
 def create_student():
     data = request.get_json() or {}
-    nis = data.get('nis')
-    first_name = data.get('first_name')
-    email = data.get('email', f"{nis}@sekolah.id")
-    password = data.get('password', 'siswa12345')
+    nis = (data.get('nis') or '').strip()
+    first_name = (data.get('first_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+    class_id = data.get('class_id')
+    parent_id = data.get('parent_id')
 
     if not nis or not first_name:
         return jsonify({'success': False, 'error': {'message': 'NIS dan nama depan wajib diisi'}}), 400
 
-    username = data.get('username') or nis
-    user = User(username=username, name=f"{first_name} {data.get('last_name', '')}".strip(), email=email, role='student')
+    # 1. Check duplicate NIS
+    if Student.query.filter_by(nis=nis).first():
+        return jsonify({'success': False, 'error': {'message': f'NIS/NIM {nis} sudah terdaftar pada siswa lain'}}), 400
+
+    # 2. Process username
+    raw_username = (data.get('username') or '').strip()
+    if not raw_username:
+        # Default: siswa_<first_name_lowercase>
+        base_name = re.sub(r'[^a-zA-Z0-9_]', '', first_name.lower()) or 'siswa'
+        candidate = f"siswa_{base_name}"
+        counter = 1
+        while User.query.filter_by(username=candidate).first():
+            candidate = f"siswa_{base_name}{counter}"
+            counter += 1
+        username = candidate
+    else:
+        username = raw_username
+        if User.query.filter_by(username=username).first():
+            return jsonify({'success': False, 'error': {'message': f'Username "{username}" sudah digunakan oleh akun lain'}}), 400
+
+    # 3. Process email
+    raw_email = (data.get('email') or '').strip()
+    if not raw_email:
+        email = f"{nis}@student.umg.ac.id"
+    else:
+        email = raw_email
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'error': {'message': f'Email "{email}" sudah digunakan oleh akun lain'}}), 400
+
+    # 4. Process password
+    password = (data.get('password') or '').strip() or 'siswa123'
+
+    # Create User Account for the student
+    user = User(
+        username=username,
+        name=f"{first_name} {last_name}".strip(),
+        email=email,
+        role='student'
+    )
     user.set_password(password)
     db.session.add(user)
     db.session.flush()
 
+    # Create Student profile
     student = Student(
         user_id=user.id,
         nis=nis,
         first_name=first_name,
-        last_name=data.get('last_name', ''),
-        class_id=data.get('class_id'),
+        last_name=last_name,
+        class_id=int(class_id) if class_id else None,
+        parent_id=int(parent_id) if parent_id else None,
         status='active'
     )
     db.session.add(student)
+
+    # Automatically enroll into subjects taught in this class
+    if student.class_id:
+        schedules = Schedule.query.filter_by(class_id=student.class_id).all()
+        for sched in schedules:
+            if sched.subject and sched.subject not in student.enrolled_subjects:
+                student.enrolled_subjects.append(sched.subject)
+
     db.session.commit()
 
-    record_audit('CREATE_STUDENT', 'students', student.id, None, student.full_name)
-    return jsonify({'success': True, 'data': student.to_dict()}), 201
+    record_audit('CREATE_STUDENT', 'students', student.id, None, f"Dibuat siswa {student.full_name} ({username})")
+    
+    res_data = student.to_dict()
+    res_data['credentials'] = {
+        'username': username,
+        'email': email,
+        'nis': nis
+    }
+    return jsonify({
+        'success': True,
+        'message': f'Siswa {student.full_name} berhasil ditambahkan dengan username: {username}',
+        'data': res_data
+    }), 201
 
 # ----------------- SCHEDULES -----------------
 @master_bp.route('/schedules', methods=['GET'])

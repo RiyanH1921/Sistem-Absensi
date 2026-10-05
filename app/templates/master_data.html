@@ -171,8 +171,10 @@
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>NIS</th>
+                                    <th>NIS / NIM</th>
                                     <th>Nama Siswa</th>
+                                    <th>Username Akun</th>
+                                    <th>Email Akun</th>
                                     <th>Kelas</th>
                                     <th>Orang Tua / Wali</th>
                                     <th>Status</th>
@@ -181,8 +183,14 @@
                             <tbody>
                                 {% for st in students %}
                                 <tr>
-                                    <td class="font-monospace small">{{ st.nis }}</td>
+                                    <td class="font-monospace small fw-bold text-dark">{{ st.nis }}</td>
                                     <td class="fw-semibold">{{ st.full_name }}</td>
+                                    <td>
+                                        <span class="badge bg-primary-subtle text-primary font-monospace px-2 py-1">
+                                            <i class="bi bi-person-fill me-1"></i>{{ st.user.username if st.user else '-' }}
+                                        </span>
+                                    </td>
+                                    <td class="small text-muted">{{ st.user.email if st.user else '-' }}</td>
                                     <td><span class="badge bg-info-subtle text-info">{{ st.class_room.name if st.class_room else '-' }}</span></td>
                                     <td>{{ st.parent.full_name if st.parent else '-' }}</td>
                                     <td><span class="badge bg-success">{{ st.status | upper }}</span></td>
@@ -336,6 +344,160 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Tambah Guru/Dosen -->
+<div class="modal fade" id="modalAddTeacher" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white py-3 px-4">
+                <h6 class="modal-title fw-bold mb-0"><i class="bi bi-person-badge-fill me-2"></i>Tambah Data Guru / Dosen Pengampu</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">NIP Guru <span class="text-danger">*</span></label>
+                        <input type="text" id="newTeacherNip" class="form-control" placeholder="e.g. 198801012015011001" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Email Guru <span class="text-danger">*</span></label>
+                        <input type="email" id="newTeacherEmail" class="form-control" placeholder="e.g. dosen@presensi.cloud" required>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nama Depan <span class="text-danger">*</span></label>
+                        <input type="text" id="newTeacherFirstName" class="form-control" placeholder="e.g. Budi" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nama Belakang / Gelar</label>
+                        <input type="text" id="newTeacherLastName" class="form-control" placeholder="e.g. Santoso, M.Kom.">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">No. Telepon / WhatsApp</label>
+                        <input type="text" id="newTeacherPhone" class="form-control" placeholder="e.g. 081234567890">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Username Login</label>
+                        <input type="text" id="newTeacherUsername" class="form-control" placeholder="Otomatis NIP jika kosong">
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Password Akun</label>
+                    <input type="password" id="newTeacherPassword" class="form-control" placeholder="Default: guru12345" value="guru12345">
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold shadow-sm" id="btnSaveTeacher">
+                    <i class="bi bi-save me-1"></i> Simpan Guru
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tambah Siswa -->
+<div class="modal fade" id="modalAddStudent" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white py-3 px-4">
+                <h6 class="modal-title fw-bold mb-0"><i class="bi bi-person-plus-fill me-2"></i>Tambah Data Siswa / Mahasiswa</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-primary bg-primary-subtle border-0 small py-2 px-3 mb-3">
+                    <i class="bi bi-info-circle-fill me-1"></i> Setiap siswa yang ditambahkan otomatis dibuatkan akun login sistem dengan username dan password unik mereka sendiri.
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">NIS / NIM Siswa <span class="text-danger">*</span></label>
+                        <input type="text" id="newStudentNis" class="form-control" placeholder="e.g. 22060511005" required>
+                        <div class="form-text text-xs" style="font-size: 0.72rem;">Dapat digunakan untuk identitas login siswa.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Pilih Kelas <span class="text-danger">*</span></label>
+                        <select id="newStudentClass" class="form-select" required>
+                            <option value="">-- Pilih Kelas --</option>
+                            {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.academic_year }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nama Depan <span class="text-danger">*</span></label>
+                        <input type="text" id="newStudentFirstName" class="form-control" placeholder="e.g. Fikri" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nama Belakang</label>
+                        <input type="text" id="newStudentLastName" class="form-control" placeholder="e.g. Ardiansyah">
+                    </div>
+                </div>
+
+                <!-- Pengaturan Kredensial Akun Login -->
+                <div class="card bg-light border-0 rounded-3 p-3 mb-3">
+                    <div class="fw-bold small text-dark mb-2 d-flex align-items-center">
+                        <i class="bi bi-shield-lock-fill text-primary me-2"></i>Kredensial Akun Login Sistem Siswa
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Username Login</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+                                <input type="text" id="newStudentUsername" class="form-control" placeholder="Otomatis (e.g. siswa_fikri)">
+                            </div>
+                            <div class="form-text text-xs" style="font-size: 0.72rem;">Kosongkan jika ingin dibuat otomatis dari nama depan.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Email Siswa</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-envelope"></i></span>
+                                <input type="email" id="newStudentEmail" class="form-control" placeholder="Otomatis (NIS@student.umg.ac.id)">
+                            </div>
+                            <div class="form-text text-xs" style="font-size: 0.72rem;">Kosongkan untuk email default kampus.</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-semibold">Password Akun Siswa</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-key"></i></span>
+                                <input type="password" id="newStudentPassword" class="form-control" placeholder="Masukkan password (default: siswa123)" value="siswa123">
+                                <button class="btn btn-outline-secondary" type="button" id="btnToggleStudentPwd" title="Lihat password">
+                                    <i class="bi bi-eye" id="iconTogglePwd"></i>
+                                </button>
+                            </div>
+                            <div class="form-text text-xs" style="font-size: 0.72rem;">Setiap siswa dapat memiliki password berbeda sesuai yang ditentukan di sini.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Akun Orang Tua / Wali Murid (Opsional)</label>
+                    <select id="newStudentParent" class="form-select form-select-sm">
+                        <option value="">-- Tanpa Akun Orang Tua (Opsional) --</option>
+                        {% for p in parents %}
+                        <option value="{{ p.id }}">{{ p.full_name }} ({{ p.phone or p.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold shadow-sm" id="btnSaveStudent">
+                    <i class="bi bi-person-check-fill me-1"></i> Simpan & Buat Akun Siswa
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -392,5 +554,136 @@
             }
         });
     });
+
+    // Toggle Password Visibility in Modal
+    const btnTogglePwd = document.getElementById('btnToggleStudentPwd');
+    if (btnTogglePwd) {
+        btnTogglePwd.addEventListener('click', function() {
+            const pwdInput = document.getElementById('newStudentPassword');
+            const icon = document.getElementById('iconTogglePwd');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                pwdInput.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        });
+    }
+
+    // Save Student & Account
+    const btnSaveStudent = document.getElementById('btnSaveStudent');
+    if (btnSaveStudent) {
+        btnSaveStudent.addEventListener('click', function() {
+            const nis = document.getElementById('newStudentNis').value.trim();
+            const classId = document.getElementById('newStudentClass').value;
+            const firstName = document.getElementById('newStudentFirstName').value.trim();
+            const lastName = document.getElementById('newStudentLastName').value.trim();
+            const username = document.getElementById('newStudentUsername').value.trim();
+            const email = document.getElementById('newStudentEmail').value.trim();
+            const password = document.getElementById('newStudentPassword').value.trim();
+            const parentId = document.getElementById('newStudentParent').value;
+
+            if (!nis || !classId || !firstName) {
+                Swal.fire('Perhatian', 'NIS/NIM, Kelas, dan Nama Depan wajib diisi!', 'warning');
+                return;
+            }
+
+            btnSaveStudent.disabled = true;
+            btnSaveStudent.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+
+            fetch('/api/v1/students', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nis: nis,
+                    class_id: parseInt(classId),
+                    first_name: firstName,
+                    last_name: lastName,
+                    username: username,
+                    email: email,
+                    password: password,
+                    parent_id: parentId ? parseInt(parentId) : null
+                })
+            })
+            .then(r => r.json())
+            .then(res => {
+                btnSaveStudent.disabled = false;
+                btnSaveStudent.innerHTML = '<i class="bi bi-person-check-fill me-1"></i> Simpan & Buat Akun Siswa';
+
+                if (res.success) {
+                    const creds = res.data.credentials || {};
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Siswa & Akun Berhasil Dibuat!',
+                        html: `
+                            <div class="text-start alert alert-light border small mt-2">
+                                <div><b>Nama Siswa:</b> ${res.data.full_name}</div>
+                                <div><b>NIS / NIM:</b> <code>${res.data.nis}</code></div>
+                                <div><b>Username Login:</b> <span class="badge bg-primary">${creds.username || '-'}</span></div>
+                                <div><b>Email:</b> ${creds.email || '-'}</div>
+                                <div class="mt-2 text-muted" style="font-size: 0.75rem;">
+                                    * Siswa dapat login ke sistem menggunakan Username, Email, atau NIS dengan password yang telah ditentukan.
+                                </div>
+                            </div>
+                        `,
+                        confirmButtonText: 'Selesai'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire('Gagal Menyimpan', res.error.message || 'Terjadi kesalahan sistem', 'error');
+                }
+            })
+            .catch(err => {
+                btnSaveStudent.disabled = false;
+                btnSaveStudent.innerHTML = '<i class="bi bi-person-check-fill me-1"></i> Simpan & Buat Akun Siswa';
+                Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+            });
+        });
+    }
+
+    // Save Teacher
+    const btnSaveTeacher = document.getElementById('btnSaveTeacher');
+    if (btnSaveTeacher) {
+        btnSaveTeacher.addEventListener('click', function() {
+            const nip = document.getElementById('newTeacherNip').value.trim();
+            const firstName = document.getElementById('newTeacherFirstName').value.trim();
+            const lastName = document.getElementById('newTeacherLastName').value.trim();
+            const email = document.getElementById('newTeacherEmail').value.trim();
+            const phone = document.getElementById('newTeacherPhone').value.trim();
+            const username = document.getElementById('newTeacherUsername').value.trim();
+            const password = document.getElementById('newTeacherPassword').value.trim();
+
+            if (!nip || !firstName || !email) {
+                Swal.fire('Perhatian', 'NIP, Nama Depan, dan Email wajib diisi!', 'warning');
+                return;
+            }
+
+            fetch('/api/v1/teachers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nip: nip,
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    phone: phone,
+                    username: username || nip,
+                    password: password || 'guru12345'
+                })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    Swal.fire('Berhasil', 'Guru/Dosen baru berhasil ditambahkan.', 'success').then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire('Gagal', res.error.message, 'error');
+                }
+            });
+        });
+    }
 </script>
 {% endblock %}

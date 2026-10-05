@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, session, g, request
 from app.models.user import User
-from app.models.academic import Class, Subject, Teacher, Student, Schedule
+from app.models.academic import Class, Subject, Teacher, Student, Parent, Schedule
 from app.models.attendance import Lesson, Attendance, LeaveRequest
 from app.models.log import AuditLog
 from app.utils.decorators import get_current_user, login_required, role_required
@@ -107,6 +107,7 @@ def master_data_page():
     students = Student.query.all()
     subjects = Subject.query.all()
     schedules = Schedule.query.all()
+    parents = Parent.query.all()
     audit_logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(30).all()
 
-    return render_template('master_data.html', user=user, classes=classes, teachers=teachers, students=students, subjects=subjects, schedules=schedules, audit_logs=audit_logs)
+    return render_template('master_data.html', user=user, classes=classes, teachers=teachers, students=students, subjects=subjects, schedules=schedules, parents=parents, audit_logs=audit_logs)

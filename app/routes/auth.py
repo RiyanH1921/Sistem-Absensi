@@ -1,27 +1,47 @@
 from datetime import datetime
-from flask import Blueprint, request, jsonify, session, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, session, redirect, url_for, flash, render_template
 from flask_jwt_extended import create_access_token
 from app.extensions import db
 from app.models.user import User
+from app.models.academic import Student, Teacher
 from app.utils.decorators import get_current_user, record_audit
-
-from flask import Blueprint, request, jsonify, session, redirect, url_for, flash, render_template
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/v1/auth')
 auth_views = Blueprint('auth_views', __name__)
 
+def find_user_by_identifier(identifier: str):
+    """
+    Find user by username, email, student NIS, or teacher NIP.
+    """
+    if not identifier:
+        return None
+    identifier = identifier.strip()
+    # 1. Direct username or email
+    user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+    if user:
+        return user
+    # 2. Check student NIS
+    student = Student.query.filter_by(nis=identifier).first()
+    if student and student.user:
+        return student.user
+    # 3. Check teacher NIP
+    teacher = Teacher.query.filter_by(nip=identifier).first()
+    if teacher and teacher.user:
+        return teacher.user
+    return None
+
 @auth_bp.route('/login', methods=['POST'])
 def api_login():
     data = request.get_json() or {}
-    username = data.get('username') or data.get('email')
+    identifier = (data.get('username') or data.get('email') or data.get('identifier') or '').strip()
     password = data.get('password')
 
-    if not username or not password:
-        return jsonify({'success': False, 'error': {'code': 'MISSING_FIELDS', 'message': 'Username/email dan password wajib diisi'}}), 400
+    if not identifier or not password:
+        return jsonify({'success': False, 'error': {'code': 'MISSING_FIELDS', 'message': 'Username/Email/NIS dan password wajib diisi'}}), 400
 
-    user = User.query.filter((User.username == username) | (User.email == username)).first()
+    user = find_user_by_identifier(identifier)
     if not user or not user.check_password(password):
-        return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Username atau password salah'}}), 401
+        return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Username, email, NIS, atau password salah'}}), 401
 
     if not user.is_active:
         return jsonify({'success': False, 'error': {'code': 'ACCOUNT_INACTIVE', 'message': 'Akun Anda dinonaktifkan'}}), 403
@@ -59,7 +79,7 @@ def login():
         identifier = request.form.get('identifier', '').strip()
         password = request.form.get('password', '')
 
-        target_user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
+        target_user = find_user_by_identifier(identifier)
         if target_user and target_user.check_password(password):
             if not target_user.is_active:
                 flash('Akun Anda dinonaktifkan oleh administrator.', 'danger')
@@ -75,7 +95,7 @@ def login():
             record_audit('LOGIN', 'users', target_user.id, None, 'User logged in via Web UI', user_id=target_user.id)
             return redirect(url_for('views.dashboard'))
         else:
-            flash('Username/email atau password tidak sesuai.', 'danger')
+            flash('Username/Email/NIS atau password tidak sesuai.', 'danger')
 
     return render_template('login.html')
 
