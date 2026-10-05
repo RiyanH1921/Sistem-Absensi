@@ -128,7 +128,13 @@
                         <label class="form-label small fw-semibold text-secondary">Password</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
-                            <input type="password" name="password" id="passwordInput" class="form-control border-start-0 ps-0" placeholder="Masukkan password" required>
+                            <input type="password" name="password" id="passwordInput" class="form-control border-start-0 border-end-0 ps-0" placeholder="Masukkan password" required>
+                            <button class="btn btn-outline-light border bg-light text-muted" type="button" id="btnToggleLoginPwd" title="Lihat/Sembunyikan password">
+                                <i class="bi bi-eye" id="iconLoginEye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text mt-1 text-muted" style="font-size: 0.73rem;">
+                            <i class="bi bi-info-circle text-primary me-1"></i>Siswa dapat masuk menggunakan <b>Username</b>, <b>Email</b>, atau <b>NIS/NIM</b>. Password default siswa: <code>siswa123</code>.
                         </div>
                     </div>
 
@@ -176,6 +182,21 @@
         function fillForm(username, password) {
             document.getElementById('identifierInput').value = username;
             document.getElementById('passwordInput').value = password;
+        }
+
+        const btnToggleLoginPwd = document.getElementById('btnToggleLoginPwd');
+        if (btnToggleLoginPwd) {
+            btnToggleLoginPwd.addEventListener('click', function() {
+                const pwdInput = document.getElementById('passwordInput');
+                const eyeIcon = document.getElementById('iconLoginEye');
+                if (pwdInput.type === 'password') {
+                    pwdInput.type = 'text';
+                    eyeIcon.className = 'bi bi-eye-slash';
+                } else {
+                    pwdInput.type = 'password';
+                    eyeIcon.className = 'bi bi-eye';
+                }
+            });
         }
     </script>
 </body>

@@ -195,6 +195,32 @@ def create_student():
         'data': res_data
     }), 201
 
+@master_bp.route('/students/<int:student_id>/reset-password', methods=['POST', 'PUT'])
+@role_required('admin', 'superadmin')
+def reset_student_password(student_id):
+    student = Student.query.get(student_id)
+    if not student or not student.user:
+        return jsonify({'success': False, 'error': {'message': 'Data siswa atau akun login tidak ditemukan'}}), 404
+
+    data = request.get_json() or {}
+    new_password = (data.get('password') or data.get('new_password') or '').strip()
+    if not new_password:
+        return jsonify({'success': False, 'error': {'message': 'Password baru tidak boleh kosong'}}), 400
+
+    student.user.set_password(new_password)
+    db.session.commit()
+    record_audit('RESET_PASSWORD', 'users', student.user.id, None, f"Admin mereset password siswa {student.full_name}")
+
+    return jsonify({
+        'success': True,
+        'message': f'Password untuk akun {student.user.username} ({student.full_name}) berhasil diperbarui.',
+        'data': {
+            'student_id': student.id,
+            'nis': student.nis,
+            'username': student.user.username
+        }
+    })
+
 # ----------------- SCHEDULES -----------------
 @master_bp.route('/schedules', methods=['GET'])
 def get_schedules():

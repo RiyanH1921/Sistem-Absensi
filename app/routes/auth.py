@@ -34,7 +34,7 @@ def find_user_by_identifier(identifier: str):
 def api_login():
     data = request.get_json() or {}
     identifier = (data.get('username') or data.get('email') or data.get('identifier') or '').strip()
-    password = data.get('password')
+    password = (data.get('password') or '').strip()
 
     if not identifier or not password:
         return jsonify({'success': False, 'error': {'code': 'MISSING_FIELDS', 'message': 'Username/Email/NIS dan password wajib diisi'}}), 400
@@ -77,7 +77,7 @@ def login():
 
     if request.method == 'POST':
         identifier = request.form.get('identifier', '').strip()
-        password = request.form.get('password', '')
+        password = request.form.get('password', '').strip()
 
         target_user = find_user_by_identifier(identifier)
         if target_user and target_user.check_password(password):

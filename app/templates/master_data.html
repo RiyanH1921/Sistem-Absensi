@@ -166,6 +166,11 @@
                         <i class="bi bi-plus-lg me-1"></i> Tambah Siswa
                     </button>
                 </div>
+                <div class="alert alert-light border-0 border-start border-4 border-primary bg-primary-subtle rounded-0 py-2 px-3 small d-flex justify-content-between align-items-center mb-0">
+                    <div>
+                        <i class="bi bi-shield-lock-fill text-primary me-2"></i><b>Kredensial Login Siswa:</b> Setiap siswa login menggunakan <b>Username</b>, <b>Email</b>, atau <b>NIS/NIM</b>. Password default sistem: <code>siswa123</code>. Super Admin dapat mereset password siswa kapan saja.
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
@@ -178,6 +183,7 @@
                                     <th>Kelas</th>
                                     <th>Orang Tua / Wali</th>
                                     <th>Status</th>
+                                    <th class="text-center">Kredensial & Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -194,6 +200,20 @@
                                     <td><span class="badge bg-info-subtle text-info">{{ st.class_room.name if st.class_room else '-' }}</span></td>
                                     <td>{{ st.parent.full_name if st.parent else '-' }}</td>
                                     <td><span class="badge bg-success">{{ st.status | upper }}</span></td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-warning btn-sm py-1 px-2" style="font-size: 0.75rem;" 
+                                                title="Reset Password Siswa"
+                                                onclick="openResetPasswordModal('{{ st.id }}', '{{ st.full_name | escape }}', '{{ st.user.username if st.user else st.nis }}')">
+                                                <i class="bi bi-key-fill me-1"></i>Reset Sandi
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" style="font-size: 0.75rem;"
+                                                title="Salin Kredensial Siswa"
+                                                onclick="copyStudentCredentials('{{ st.full_name | escape }}', '{{ st.nis }}', '{{ st.user.username if st.user else '-' }}', '{{ st.user.email if st.user else '-' }}')">
+                                                <i class="bi bi-clipboard me-1"></i>Salin
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -498,6 +518,42 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Reset Password Siswa -->
+<div class="modal fade" id="modalResetStudentPassword" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-warning text-dark py-3 px-4">
+                <h6 class="modal-title fw-bold mb-0"><i class="bi bi-key-fill me-2"></i>Reset Password Akun Siswa</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="resetStudentId">
+                <div class="alert alert-light border small mb-3">
+                    <div><b>Nama Siswa:</b> <span id="resetStudentName" class="fw-semibold text-dark">-</span></div>
+                    <div><b>Username Akun:</b> <code id="resetStudentUsername" class="text-primary">-</code></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Password Baru Siswa <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-shield-lock"></i></span>
+                        <input type="password" id="resetNewPassword" class="form-control" placeholder="Minimal 6 karakter" value="siswa123">
+                        <button class="btn btn-outline-secondary" type="button" id="btnToggleResetPwd" title="Lihat password">
+                            <i class="bi bi-eye" id="iconToggleResetPwd"></i>
+                        </button>
+                    </div>
+                    <div class="form-text text-xs" style="font-size: 0.72rem;">Password default: <code>siswa123</code>. Super Admin dapat menentukan kata sandi baru untuk siswa ini.</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-warning btn-sm px-4 fw-semibold shadow-sm" id="btnSubmitResetPassword">
+                    <i class="bi bi-check-lg me-1"></i> Simpan Password Baru
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -682,6 +738,93 @@
                 } else {
                     Swal.fire('Gagal', res.error.message, 'error');
                 }
+            });
+        });
+    }
+
+    // Modal Reset Password Functions
+    window.openResetPasswordModal = function(studentId, studentName, studentUsername) {
+        document.getElementById('resetStudentId').value = studentId;
+        document.getElementById('resetStudentName').innerText = studentName;
+        document.getElementById('resetStudentUsername').innerText = studentUsername;
+        document.getElementById('resetNewPassword').value = 'siswa123';
+        const modal = new bootstrap.Modal(document.getElementById('modalResetStudentPassword'));
+        modal.show();
+    };
+
+    window.copyStudentCredentials = function(name, nis, username, email) {
+        const text = `Kredensial Siswa:\nNama: ${name}\nNIS/NIM: ${nis}\nUsername: ${username}\nEmail: ${email}\nPassword Default: siswa123\nURL Login: ${window.location.origin}/login`;
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Kredensial Disalin!',
+                text: `Kredensial login siswa "${name}" berhasil disalin ke clipboard.`,
+                timer: 2500,
+                showConfirmButton: false
+            });
+        }).catch(() => {
+            prompt('Salin Kredensial Siswa:', text);
+        });
+    };
+
+    const btnToggleResetPwd = document.getElementById('btnToggleResetPwd');
+    if (btnToggleResetPwd) {
+        btnToggleResetPwd.addEventListener('click', function() {
+            const pwdInput = document.getElementById('resetNewPassword');
+            const icon = document.getElementById('iconToggleResetPwd');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                pwdInput.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        });
+    }
+
+    const btnSubmitResetPassword = document.getElementById('btnSubmitResetPassword');
+    if (btnSubmitResetPassword) {
+        btnSubmitResetPassword.addEventListener('click', function() {
+            const studentId = document.getElementById('resetStudentId').value;
+            const newPassword = document.getElementById('resetNewPassword').value.trim();
+
+            if (!newPassword || newPassword.length < 6) {
+                Swal.fire('Perhatian', 'Password baru minimal 6 karakter!', 'warning');
+                return;
+            }
+
+            btnSubmitResetPassword.disabled = true;
+            btnSubmitResetPassword.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+
+            fetch(`/api/v1/students/${studentId}/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: newPassword })
+            })
+            .then(r => r.json())
+            .then(res => {
+                btnSubmitResetPassword.disabled = false;
+                btnSubmitResetPassword.innerHTML = '<i class="bi bi-check-lg me-1"></i> Simpan Password Baru';
+
+                if (res.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil Reset Password!',
+                        text: res.message || 'Password siswa berhasil diperbarui.',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        const modalEl = document.getElementById('modalResetStudentPassword');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+                    });
+                } else {
+                    Swal.fire('Gagal', res.error.message || 'Gagal reset password', 'error');
+                }
+            })
+            .catch(err => {
+                btnSubmitResetPassword.disabled = false;
+                btnSubmitResetPassword.innerHTML = '<i class="bi bi-check-lg me-1"></i> Simpan Password Baru';
+                Swal.fire('Error', 'Gagal menghubungi server.', 'error');
             });
         });
     }
