@@ -33,6 +33,12 @@ def scan_attendance():
     if not qr_payload:
         return jsonify({'success': False, 'error': {'code': 'INVALID_PAYLOAD', 'message': 'Payload QR code tidak valid atau kosong'}}), 400
 
+    import re
+    # Extract token {lesson_id}:{period}:{signature} cleanly if wrapped in URL or raw text
+    token_match = re.search(r'(\d+):(\d+):([a-fA-F0-9]{16})', qr_payload)
+    if token_match:
+        qr_payload = token_match.group(0)
+
     try:
         lesson_id = int(qr_payload.split(':')[0])
     except (ValueError, IndexError):

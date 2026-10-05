@@ -46,9 +46,17 @@
                     </div>
                     <div class="col-6">
                         <label class="form-label small fw-semibold">Radius Geofencing (Meter)</label>
-                        <input type="number" class="form-control" id="inputRadius" value="100" min="10">
+                        <input type="number" class="form-control" id="inputRadius" value="100" min="0">
                         <div class="form-text" style="font-size: 0.72rem;">Siswa wajib berada dalam radius ini.</div>
                     </div>
+                </div>
+
+                <div class="form-check form-switch mb-3 text-start">
+                    <input class="form-check-input" type="checkbox" id="checkBypassGPS">
+                    <label class="form-check-label small" for="checkBypassGPS">
+                        <strong>Mode Bebas Geofencing (Kelas Online / Uji Coba)</strong>
+                        <div class="text-muted" style="font-size: 0.72rem;">Jika aktif, siswa dapat scan presensi dari mana saja tanpa batasan radius GPS.</div>
+                    </label>
                 </div>
 
                 <div class="alert alert-info py-2 small d-flex align-items-center gap-2 mb-4">
@@ -86,10 +94,18 @@
                     </button>
                 </div>
 
-                <!-- Dynamic QR Box -->
-                <div class="my-3">
+                <!-- Dynamic QR Box with high-contrast frame -->
+                <div class="my-3 p-3 bg-white rounded-4 shadow-sm border mx-auto" style="max-width: 340px;">
                     <div class="qr-frame" style="max-width: 100%;">
-                        <img id="qrImageElement" src="" alt="Dynamic QR Code" style="width: 260px; max-width: 100%; height: auto; aspect-ratio: 1/1; object-fit: contain;">
+                        <img id="qrImageElement" src="" alt="Dynamic QR Code" style="width: 270px; max-width: 100%; height: auto; aspect-ratio: 1/1; object-fit: contain;">
+                    </div>
+                    <div class="d-flex justify-content-center gap-2 mt-3">
+                        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btnEnlargeQR" type="button">
+                            <i class="bi bi-arrows-fullscreen me-1"></i> Perbesar QR
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="btnCopyQRToken" type="button" title="Salin token QR untuk pengujian cepat">
+                            <i class="bi bi-clipboard me-1"></i> Salin Token
+                        </button>
                     </div>
                 </div>
 
@@ -185,6 +201,27 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Fullscreen QR for Projector -->
+<div class="modal fade" id="modalFullscreenQR" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-projector text-primary me-2"></i>Layar QR Proyektor Kelas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="p-3 bg-white d-inline-block rounded-4 shadow-sm border mb-3">
+                    <img id="qrModalImage" src="" alt="QR Fullscreen" style="width: 380px; max-width: 100%; height: auto; aspect-ratio: 1/1;">
+                </div>
+                <div class="text-secondary small mb-2">QR Code berganti dinamis tiap 30 detik (HMAC-SHA256)</div>
+                <div class="badge bg-primary fs-6 px-3 py-2 rounded-pill">
+                    Sesi: {{ lesson.subject.name if lesson else '' }} &middot; {{ lesson.class_room.name if lesson else '' }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -216,11 +253,14 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Membuka Sesi...';
 
+        const bypassGPS = document.getElementById('checkBypassGPS') && document.getElementById('checkBypassGPS').checked;
+        const radiusVal = bypassGPS ? 0 : parseFloat(document.getElementById('inputRadius').value);
+
         const payload = {
             class_id: parseInt(document.getElementById('inputClass').value),
             subject_id: parseInt(document.getElementById('inputSubject').value),
             late_tolerance_minutes: parseInt(document.getElementById('inputTolerance').value),
-            radius_m: parseFloat(document.getElementById('inputRadius').value),
+            radius_m: radiusVal,
             latitude: teacherLat,
             longitude: teacherLng
         };
@@ -262,16 +302,53 @@
     const progressBar = document.getElementById('qrProgressBar');
     const qrImg = document.getElementById('qrImageElement');
 
+    let currentPayload = '';
+    const modalFullscreenEl = document.getElementById('modalFullscreenQR');
+    const modalFullscreenQR = modalFullscreenEl ? new bootstrap.Modal(modalFullscreenEl) : null;
+    const qrModalImg = document.getElementById('qrModalImage');
+
     function fetchLatestQR() {
         fetch(`/api/v1/lessons/${lessonId}/qr`)
             .then(r => r.json())
             .then(res => {
                 if (res.success && res.image) {
                     qrImg.src = res.image;
+                    if (qrModalImg) qrModalImg.src = res.image;
+                    currentPayload = res.payload || '';
                     countdown = res.rotation_seconds || 30;
                 }
             })
             .catch(e => console.error("Error fetching QR:", e));
+    }
+
+    const btnEnlarge = document.getElementById('btnEnlargeQR');
+    if (btnEnlarge && modalFullscreenQR) {
+        btnEnlarge.addEventListener('click', () => {
+            modalFullscreenQR.show();
+        });
+    }
+
+    const btnCopy = document.getElementById('btnCopyQRToken');
+    if (btnCopy) {
+        btnCopy.addEventListener('click', () => {
+            if (!currentPayload) {
+                Swal.fire('Info', 'Token QR belum tersedia, mohon tunggu beberapa detik.', 'info');
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(currentPayload).then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Token Disalin!',
+                        text: currentPayload,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                });
+            } else {
+                prompt("Salin token QR ini:", currentPayload);
+            }
+        });
     }
 
     function fetchLiveAttendances() {

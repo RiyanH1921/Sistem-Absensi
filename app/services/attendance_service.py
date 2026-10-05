@@ -21,6 +21,15 @@ class AttendanceService:
         today = datetime.utcnow().date()
         open_existing = Lesson.query.filter_by(teacher_id=teacher_id, subject_id=subject_id, date=today, status='open').first()
         if open_existing:
+            if radius_m is not None:
+                open_existing.radius_m = radius_m
+            if late_tolerance_minutes is not None:
+                open_existing.late_tolerance_minutes = late_tolerance_minutes
+            if latitude is not None:
+                open_existing.latitude = latitude
+            if longitude is not None:
+                open_existing.longitude = longitude
+            db.session.commit()
             return open_existing
 
         lesson = Lesson(
@@ -112,16 +121,16 @@ class AttendanceService:
         if existing and existing.status in ['present', 'late']:
             return False, {'code': 'ALREADY_CHECKED_IN', 'message': f'Anda sudah melakukan presensi sebelumnya dengan status {existing.status.upper()}.'}
 
-        # Step 6: Validate GPS Location radius
+        # Step 6: Validate GPS Location radius (hanya jika radius > 0)
         is_flagged = False
         flag_reason = None
-        if lesson.latitude is not None and lesson.longitude is not None:
+        if lesson.latitude is not None and lesson.longitude is not None and (lesson.radius_m or 0) > 0:
             if user_lat is None or user_lon is None:
                 return False, {'code': 'GPS_REQUIRED', 'message': 'Akses lokasi GPS diperlukan untuk melakukan presensi.'}
             
             in_radius, distance_m = is_within_radius(user_lat, user_lon, lesson.latitude, lesson.longitude, lesson.radius_m)
             if not in_radius:
-                return False, {'code': 'OUT_OF_RADIUS', 'message': f'Lokasi Anda berada di luar radius presensi ({distance_m:.1f} m dari titik pusat, maks {lesson.radius_m} m).'}
+                return False, {'code': 'OUT_OF_RADIUS', 'message': f'Lokasi Anda berada di luar radius presensi ({distance_m:.1f} m dari titik pusat, batas maks {lesson.radius_m} m).'}
 
         # Step 7: Check punctuality (Hadir vs Terlambat)
         now = datetime.utcnow()

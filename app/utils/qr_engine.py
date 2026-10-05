@@ -18,7 +18,7 @@ def generate_qr_payload(lesson_id: int, secret: str, rotation_seconds: int = 30)
 
 def verify_qr_payload(qr_string: str, lesson_id: int, secret: str, rotation_seconds: int = 30) -> bool:
     """
-    Verify dynamic QR payload with ±1 time period tolerance.
+    Verify dynamic QR payload with ±2 time period tolerance (up to 60-90s) to handle network delay & clock drift.
     """
     try:
         parts = qr_string.strip().split(':')
@@ -34,8 +34,8 @@ def verify_qr_payload(qr_string: str, lesson_id: int, secret: str, rotation_seco
 
         current_period = int(time.time()) // rotation_seconds
 
-        # Check tolerance of current, previous, and next period
-        valid_periods = [current_period, current_period - 1, current_period + 1]
+        # Check tolerance: allow current, 2 previous periods, and 1 next period
+        valid_periods = [current_period, current_period - 1, current_period - 2, current_period + 1]
         if parsed_period not in valid_periods:
             return False
 
@@ -49,18 +49,17 @@ def verify_qr_payload(qr_string: str, lesson_id: int, secret: str, rotation_seco
 
 def generate_qr_base64_image(payload: str) -> str:
     """
-    Render QR code to Base64 PNG image Data URI
+    Render QR code to Base64 PNG image Data URI with high contrast and standard 4-module quiet zone.
     """
     qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=2,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=12,
+        border=4,  # ISO/IEC standard 4 modules quiet zone for easy camera recognition
     )
     qr.add_data(payload)
     qr.make(fit=True)
 
-    img = qr.make_image(fill_color="#1e293b", back_color="#ffffff")
+    img = qr.make_image(fill_color="#000000", back_color="#ffffff")
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()

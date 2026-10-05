@@ -36,6 +36,17 @@
                 </div>
 
                 <div class="card-body p-3 p-md-4 text-center">
+
+                    <!-- Camera device selector (shown when cameras detected) -->
+                    <div id="cameraSelectContainer" class="mb-3" style="display: none;">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-camera-video"></i></span>
+                            <select id="cameraSelection" class="form-select form-select-sm">
+                                <option value="">-- Otomatis (Kamera Belakang / Utama) --</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Scanner Viewfinder Box -->
                     <div id="qrReaderContainer" class="scanner-viewport-box shadow">
                         <div class="scanner-laser" id="scannerLaser" style="display: none;"></div>
@@ -43,18 +54,25 @@
                         <div class="scanner-corners-alt"></div>
                         <div id="reader" style="width: 100%;"></div>
                         <div id="scannerPlaceholder" class="p-5 text-white d-flex flex-column align-items-center justify-content-center" style="min-height: 280px;">
-                            <i class="bi bi-camera fs-1 text-secondary mb-2"></i>
-                            <div class="small text-secondary">Klik tombol di bawah untuk mengaktifkan kamera</div>
+                            <i class="bi bi-qr-code-scan fs-1 text-primary mb-2 opacity-75"></i>
+                            <div class="fw-semibold">Arahkan Kamera ke QR Code Dosen</div>
+                            <div class="small text-secondary mt-1">Pilih metode scan di bawah</div>
                         </div>
                     </div>
 
-                    <!-- Action Controls -->
-                    <div class="d-flex justify-content-center gap-2 mt-3">
+                    <!-- Hidden file input for image QR scanning -->
+                    <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
+
+                    <!-- Primary Action Controls -->
+                    <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
                         <button class="btn btn-primary btn-touch fw-semibold px-4 shadow rounded-pill" id="btnStartScan">
                             <i class="bi bi-camera-fill me-1"></i> Aktifkan Kamera
                         </button>
                         <button class="btn btn-danger btn-touch fw-semibold px-4 shadow rounded-pill" id="btnStopScan" style="display: none;">
                             <i class="bi bi-stop-circle-fill me-1"></i> Matikan Kamera
+                        </button>
+                        <button class="btn btn-outline-primary btn-touch fw-semibold px-3 rounded-pill" id="btnScanFromFile">
+                            <i class="bi bi-image me-1"></i> Scan dari Foto / Galeri
                         </button>
                     </div>
 
@@ -62,13 +80,18 @@
                     <div class="card bg-light border-0 rounded-3 mt-4 text-start p-3">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="fw-bold small text-dark"><i class="bi bi-crosshair me-1"></i>Lokasi Geografis (GPS):</span>
-                            <span class="badge bg-secondary text-xs" id="gpsAccuracy">Mencari sinyal...</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary text-xs" id="gpsAccuracy">Mencari sinyal...</span>
+                                <button class="btn btn-link btn-xs p-0 text-primary" id="btnRefreshGPS" title="Perbarui Koordinat GPS">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="text-muted small" style="font-size: 0.78rem;">
                             Koordinat Anda: <span id="userCoordinates" class="fw-mono fw-semibold">-</span>
                         </div>
                         <div class="text-xs text-muted mt-1" style="font-size: 0.72rem;">
-                            Sistem akan memvalidasi apakah koordinat Anda berada di dalam radius kelas saat scan berhasil.
+                            Sistem memvalidasi jarak koordinat siswa terhadap titik kelas saat presensi berhasil.
                         </div>
                     </div>
 
@@ -77,16 +100,21 @@
                         <div class="accordion-item bg-transparent">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed py-2 px-0 text-muted small bg-transparent shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTest">
-                                    <i class="bi bi-terminal me-2"></i> Mode Pengujian (Kamera tidak tersedia di PC)?
+                                    <i class="bi bi-keyboard me-2"></i> Input Manual Token QR (Mode Pengujian)
                                 </button>
                             </h2>
                             <div id="collapseTest" class="accordion-collapse collapse" data-bs-parent="#accordionTest">
                                 <div class="accordion-body px-0 pt-2 pb-0">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="manualQrInput" class="form-control" placeholder="Tempelkan string payload QR disini...">
-                                        <button class="btn btn-outline-primary" type="button" id="btnTestManualQr">Kirim Presensi</button>
+                                        <input type="text" id="manualQrInput" class="form-control" placeholder="Tempel payload QR (contoh: 1:59705:9f8e...)">
+                                        <button class="btn btn-outline-secondary" type="button" id="btnPasteClipboard" title="Tempel dari Clipboard">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                        <button class="btn btn-primary" type="button" id="btnTestManualQr">Kirim Presensi</button>
                                     </div>
-                                    <div class="text-xs text-muted mt-1" style="font-size: 0.7rem;">Contoh format: <code>1:56832:a8f9c...</code></div>
+                                    <div class="text-xs text-muted mt-1 text-start" style="font-size: 0.7rem;">
+                                        Mendukung token langsung atau link URL QR dari proyektor.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -103,8 +131,8 @@
 {% block extra_scripts %}
 <script>
     let html5QrCode = null;
-    let userLat = -7.156550; // default local campus coordinate
-    let userLon = 112.655520;
+    let userLat = -7.156556; // default campus coordinate
+    let userLon = 112.655523;
     let isScanning = false;
     let deviceHash = 'dev_' + btoa(navigator.userAgent + screen.width + screen.height).slice(0, 16);
 
@@ -121,17 +149,51 @@
                 },
                 err => {
                     document.getElementById('userCoordinates').textContent = `${userLat.toFixed(6)}, ${userLon.toFixed(6)} (Default)`;
-                    document.getElementById('gpsAccuracy').textContent = 'Default GPS';
+                    document.getElementById('gpsAccuracy').textContent = 'Default Kampus';
                     document.getElementById('gpsAccuracy').className = 'badge bg-secondary text-xs';
                 },
                 { enableHighAccuracy: true, timeout: 8000 }
             );
+        } else {
+            document.getElementById('userCoordinates').textContent = `${userLat.toFixed(6)}, ${userLon.toFixed(6)} (Default)`;
+            document.getElementById('gpsAccuracy').textContent = 'GPS Tidak Didukung';
+        }
+    }
+
+    document.getElementById('btnRefreshGPS').addEventListener('click', initGPS);
+
+    // List available video input devices (cameras)
+    async function loadCameras() {
+        try {
+            if (typeof Html5Qrcode !== 'undefined') {
+                const cameras = await Html5Qrcode.getCameras();
+                if (cameras && cameras.length > 0) {
+                    const sel = document.getElementById('cameraSelection');
+                    sel.innerHTML = '<option value="">-- Otomatis (Kamera Belakang) --</option>';
+                    cameras.forEach(cam => {
+                        const opt = document.createElement('option');
+                        opt.value = cam.id;
+                        opt.textContent = cam.label || `Kamera ${cam.id.slice(0, 8)}`;
+                        sel.appendChild(opt);
+                    });
+                    if (cameras.length > 1) {
+                        document.getElementById('cameraSelectContainer').style.display = 'block';
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Could not list cameras:", e);
         }
     }
 
     // Process attendance payload to server
     function submitAttendance(qrCodeMessage) {
-        // Play scan sound if supported
+        if (!qrCodeMessage || !qrCodeMessage.trim()) {
+            Swal.fire('Peringatan', 'QR code kosong atau tidak terbaca.', 'warning');
+            return;
+        }
+
+        // Play audio feedback
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
@@ -152,7 +214,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                qr_payload: qrCodeMessage,
+                qr_payload: qrCodeMessage.trim(),
                 latitude: userLat,
                 longitude: userLon,
                 device_hash: deviceHash
@@ -174,7 +236,7 @@
                     icon: iconType,
                     title: title,
                     html: subtext,
-                    confirmButtonText: 'Bagus',
+                    confirmButtonText: 'Lihat Riwayat',
                     confirmButtonColor: '#4f46e5'
                 }).then(() => {
                     window.location.href = '/attendance/details';
@@ -193,52 +255,137 @@
         });
     }
 
+    function resetScannerUI() {
+        isScanning = false;
+        document.getElementById('btnStopScan').style.display = 'none';
+        document.getElementById('btnStartScan').style.display = 'inline-block';
+        document.getElementById('scannerPlaceholder').style.display = 'flex';
+        const laser = document.getElementById('scannerLaser');
+        if (laser) laser.style.display = 'none';
+    }
+
+    async function stopCamera() {
+        if (html5QrCode && isScanning) {
+            try {
+                await html5QrCode.stop();
+            } catch (e) {
+                console.warn("Stop scanner error:", e);
+            }
+        }
+        resetScannerUI();
+    }
+
+    // Dynamic qrbox to avoid "qrbox larger than viewfinder" exception
+    const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const size = Math.floor(minEdge * 0.72);
+        return { width: Math.max(size, 160), height: Math.max(size, 160) };
+    };
+
     // Camera Scanner Controls
-    document.getElementById('btnStartScan').addEventListener('click', function() {
+    document.getElementById('btnStartScan').addEventListener('click', async function() {
+        if (isScanning) return;
+
         document.getElementById('scannerPlaceholder').style.display = 'none';
         document.getElementById('btnStartScan').style.display = 'none';
         document.getElementById('btnStopScan').style.display = 'inline-block';
         const laser = document.getElementById('scannerLaser');
         if (laser) laser.style.display = 'block';
 
-        html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
 
-        html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText, decodedResult) => {
-                // Once scanned, stop scanner and submit
-                html5QrCode.stop().then(() => {
-                    document.getElementById('btnStopScan').style.display = 'none';
-                    document.getElementById('btnStartScan').style.display = 'inline-block';
-                    document.getElementById('scannerPlaceholder').style.display = 'flex';
-                    if (laser) laser.style.display = 'none';
+        const config = {
+            fps: 15,
+            qrbox: qrboxFunction,
+            aspectRatio: 1.0
+        };
+
+        const selectedCam = document.getElementById('cameraSelection').value;
+        const cameraParam = selectedCam ? { deviceId: { exact: selectedCam } } : { facingMode: "environment" };
+
+        try {
+            await html5QrCode.start(
+                cameraParam,
+                config,
+                (decodedText) => {
+                    stopCamera();
+                    submitAttendance(decodedText);
+                },
+                (errorMessage) => {
+                    // ignore scan frame error
+                }
+            );
+            isScanning = true;
+        } catch (firstErr) {
+            console.warn("Primary camera start failed, attempting user-facing/default fallback:", firstErr);
+            try {
+                // Fallback to front/user camera or generic video
+                await html5QrCode.start(
+                    { facingMode: "user" },
+                    config,
+                    (decodedText) => {
+                        stopCamera();
+                        submitAttendance(decodedText);
+                    },
+                    (errorMessage) => {}
+                );
+                isScanning = true;
+            } catch (err) {
+                console.error("Camera completely unavailable:", err);
+                resetScannerUI();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Kamera Tidak Dapat Dibuka',
+                    html: `
+                        <p class="text-muted small mb-3">Browser tidak dapat mengakses kamera (izin belum diberikan atau koneksi HTTP non-localhost).</p>
+                        <div class="alert alert-primary bg-primary-subtle border-0 text-start small">
+                            <strong>Solusi Praktis:</strong>
+                            <ul class="mb-0 ps-3 mt-1">
+                                <li>Gunakan tombol <b>Scan dari Foto / Galeri</b> di bawah.</li>
+                                <li>Atau gunakan menu <b>Input Manual Token QR</b>.</li>
+                            </ul>
+                        </div>
+                    `
                 });
-                submitAttendance(decodedText);
-            },
-            (errorMessage) => {
-                // scan frame error, ignore
             }
-        ).catch(err => {
-            console.error("Camera error:", err);
-            Swal.fire('Kamera Tidak Dapat Dibuka', 'Izinkan akses kamera di browser Anda atau gunakan mode pengujian manual.', 'warning');
-            document.getElementById('btnStopScan').style.display = 'none';
-            document.getElementById('btnStartScan').style.display = 'inline-block';
-            document.getElementById('scannerPlaceholder').style.display = 'flex';
-            if (laser) laser.style.display = 'none';
-        });
+        }
     });
 
-    document.getElementById('btnStopScan').addEventListener('click', function() {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('btnStopScan').style.display = 'none';
-                document.getElementById('btnStartScan').style.display = 'inline-block';
-                document.getElementById('scannerPlaceholder').style.display = 'flex';
-                const laser = document.getElementById('scannerLaser');
-                if (laser) laser.style.display = 'none';
+    document.getElementById('btnStopScan').addEventListener('click', stopCamera);
+
+    // Scan from image file / screenshot
+    document.getElementById('btnScanFromFile').addEventListener('click', () => {
+        document.getElementById('qrFileInput').click();
+    });
+
+    document.getElementById('qrFileInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        Swal.fire({
+            title: 'Mendeteksi QR dari Foto...',
+            text: 'Membaca gambar yang dipilih...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            const decodedText = await html5QrCode.scanFile(file, true);
+            submitAttendance(decodedText);
+        } catch (err) {
+            console.error("Scan file error:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'QR Code Tidak Ditemukan',
+                text: 'Gambar terlalu buram atau tidak memuat kode QR yang valid. Pastikan gambar cukup terang dan tegak.'
             });
+        } finally {
+            e.target.value = '';
         }
     });
 
@@ -252,6 +399,25 @@
         submitAttendance(payload);
     });
 
-    document.addEventListener('DOMContentLoaded', initGPS);
+    // Paste Clipboard button
+    document.getElementById('btnPasteClipboard').addEventListener('click', async function() {
+        try {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    document.getElementById('manualQrInput').value = text;
+                }
+            } else {
+                document.getElementById('manualQrInput').focus();
+            }
+        } catch(e) {
+            document.getElementById('manualQrInput').focus();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initGPS();
+        loadCameras();
+    });
 </script>
 {% endblock %}
