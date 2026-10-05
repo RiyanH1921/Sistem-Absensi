@@ -1,0 +1,19 @@
+{
+  "include": [
+    "app",
+    "run.py",
+    "seed.py"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "venv"
+  ],
+  "typeCheckingMode": "off",
+  "reportCallIssue": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportArgumentType": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none"
+}

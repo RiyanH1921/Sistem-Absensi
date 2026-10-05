@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Details{% endblock %}
+{% block page_title %}Attendance Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- Card Wrapper Matching Gambar 5 -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+
+            <!-- Title & Back Button -->
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4 pb-3 border-bottom gap-3">
+                <div>
+                    <h3 class="fw-bold text-dark mb-1">Attendance Details</h3>
+                    <div class="text-secondary fs-6 fw-medium" id="subjectSubtitle">
+                        {% if subjects %}
+                            {% for s in subjects %}
+                                {% if s.id == selected_subject_id %}
+                                    {{ s.name }} - {{ s.code }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Object Oriented Programming - 520202
+                        {% endif %}
+                    </div>
+                </div>
+
+                <a href="{{ url_for('views.dashboard') }}" class="btn btn-secondary px-3 py-2 fw-semibold rounded-3 shadow-sm align-self-stretch align-self-sm-auto text-center">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Subject & Student Selector (if Admin/Teacher) -->
+            <div class="row g-3 mb-4 align-items-center bg-light p-3 rounded-3 border">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1">Mata Kuliah / Pelajaran</label>
+                    <select class="form-select form-select-sm" id="selectSubject">
+                        {% for s in subjects %}
+                        <option value="{{ s.id }}" {% if s.id == selected_subject_id %}selected{% endif %}>{{ s.name }} ({{ s.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if user.role in ['teacher', 'admin', 'superadmin'] %}
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1">Pilih Siswa</label>
+                    <input type="hidden" id="studentId" value="{{ student.id if student else 1 }}">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" class="form-control" value="{{ student.full_name if student else 'Riyan Pratama' }} ({{ student.nis if student else '22060511001' }})" readonly>
+                    </div>
+                </div>
+                {% else %}
+                <input type="hidden" id="studentId" value="{{ student.id if student else 1 }}">
+                {% endif %}
+
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1">Pilih Bulan & Tahun</label>
+                    <div class="d-flex flex-wrap flex-sm-nowrap gap-2">
+                        <select class="form-select form-select-sm" id="selectMonth">
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11" selected>November</option>
+                            <option value="12">December</option>
+                        </select>
+                        <input type="number" class="form-control form-control-sm" id="selectYear" value="2025" style="min-width: 80px; width: 90px;">
+                        <button class="btn btn-sm btn-primary px-3 fw-semibold text-nowrap flex-grow-1 flex-sm-grow-0" id="btnLoadGrid">
+                            Load Grid
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Badges (Total Classes & My Presence) Matching Gambar 5 -->
+            <div class="d-flex flex-wrap justify-content-between justify-content-sm-end align-items-center gap-3 mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-secondary small">Total Classes:</span>
+                    <span class="badge bg-info px-3 py-2 fs-6 rounded-2" id="badgeTotalClasses">0</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-secondary small">My Presence:</span>
+                    <span class="badge bg-success px-3 py-2 fs-6 rounded-2" id="badgeMyPresence">0</span>
+                </div>
+            </div>
+
+            <!-- Mobile Swipe Hint -->
+            <div class="d-md-none">
+                <div class="grid-swipe-hint">
+                    <i class="bi bi-arrows-expand text-primary"></i> Geser tabel ke samping untuk tanggal 1 - 31 &rarr;
+                </div>
+            </div>
+
+            <!-- Monthly Grid Table (Date 1 to 31) Exactly Matching Gambar 5 -->
+            <div class="grid-container mb-4">
+                <table class="attendance-grid-table" id="gridTable">
+                    <thead>
+                        <tr id="gridHeaderRow">
+                            <th style="width: 100px; background: #0f172a;">Date</th>
+                            <!-- 1 to 31 populated via JS -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="gridStatusRow">
+                            <td class="fw-bold bg-light" style="width: 100px;">Status</td>
+                            <!-- Status badges populated via JS -->
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Legend Info -->
+            <div class="d-flex flex-wrap align-items-center gap-3 pt-3 border-top small text-muted">
+                <div class="fw-bold text-dark">Keterangan Status:</div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-present" style="min-width: unset; padding: 2px 8px;">Present</span> Hadir
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-late" style="min-width: unset; padding: 2px 8px;">Late</span> Terlambat
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-sick" style="min-width: unset; padding: 2px 8px;">Sick</span> Sakit
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-permit" style="min-width: unset; padding: 2px 8px;">Permit</span> Izin
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-absent" style="min-width: unset; padding: 2px 8px;">Absent</span> Alpa
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="status-pill status-empty" style="min-width: unset; padding: 2px 8px;">-</span> Libur / Tidak Ada Sesi
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function loadGrid() {
+        const studentId = document.getElementById('studentId').value;
+        const subjectId = document.getElementById('selectSubject').value;
+        const month = document.getElementById('selectMonth').value;
+        const year = document.getElementById('selectYear').value;
+
+        // Update subtitle
+        const subjText = document.getElementById('selectSubject').options[document.getElementById('selectSubject').selectedIndex].text;
+        document.getElementById('subjectSubtitle').textContent = subjText;
+
+        fetch(`/api/v1/attendance/student/${studentId}?subject_id=${subjectId}&month=${month}&year=${year}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    const data = res.data;
+                    document.getElementById('badgeTotalClasses').textContent = data.total_classes;
+                    document.getElementById('badgeMyPresence').textContent = data.my_presence;
+
+                    const headerRow = document.getElementById('gridHeaderRow');
+                    const statusRow = document.getElementById('gridStatusRow');
+
+                    headerRow.innerHTML = '<th style="width: 100px; background: #0f172a;">Date</th>';
+                    statusRow.innerHTML = '<td class="fw-bold bg-light" style="width: 100px;">Status</td>';
+
+                    data.grid.forEach(cell => {
+                        // Date header cell
+                        const th = document.createElement('th');
+                        th.textContent = cell.day;
+                        if (!cell.valid_day) {
+                            th.style.opacity = '0.4';
+                        }
+                        headerRow.appendChild(th);
+
+                        // Status cell
+                        const td = document.createElement('td');
+                        if (!cell.valid_day) {
+                            td.innerHTML = '<span class="status-pill status-empty">-</span>';
+                        } else if (!cell.status) {
+                            td.innerHTML = '<span class="status-pill status-empty">-</span>';
+                        } else {
+                            let pillClass = 'status-empty';
+                            let label = cell.status.toUpperCase();
+                            if (cell.status === 'present') { pillClass = 'status-present'; label = 'Present'; }
+                            else if (cell.status === 'late') { pillClass = 'status-late'; label = 'Late'; }
+                            else if (cell.status === 'sick') { pillClass = 'status-sick'; label = 'Sick'; }
+                            else if (cell.status === 'permit') { pillClass = 'status-permit'; label = 'Permit'; }
+                            else if (cell.status === 'absent') { pillClass = 'status-absent'; label = 'Absent'; }
+
+                            td.innerHTML = `<span class="status-pill ${pillClass}">${label}</span>`;
+                        }
+                        statusRow.appendChild(td);
+                    });
+                }
+            })
+            .catch(e => console.error("Error loading grid:", e));
+    }
+
+    document.getElementById('btnLoadGrid').addEventListener('click', loadGrid);
+    document.getElementById('selectSubject').addEventListener('change', loadGrid);
+
+    document.addEventListener('DOMContentLoaded', loadGrid);
+</script>
+{% endblock %}

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistem Presensi Cloud</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.0">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .login-card {
+            background: #ffffff;
+            border-radius: 1.25rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+            max-width: 950px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .demo-btn {
+            transition: all 0.2s ease;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 0.65rem 0.85rem;
+        }
+        .demo-btn:hover {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            transform: translateY(-1px);
+        }
+        @media (max-width: 991.98px) {
+            body {
+                padding: 1rem 0.5rem;
+                align-items: flex-start;
+            }
+            .login-card {
+                border-radius: 1.25rem;
+                margin: 0.5rem auto;
+            }
+            .login-brand-panel {
+                padding: 1.5rem 1.25rem !important;
+            }
+            .login-brand-panel h3 {
+                font-size: 1.2rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+            .login-brand-panel p {
+                font-size: 0.8rem !important;
+                margin-bottom: 0.75rem !important;
+            }
+            .login-features-list {
+                display: none;
+            }
+            .login-brand-footer {
+                display: none;
+            }
+            .login-form-panel {
+                padding: 1.5rem 1.25rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="row g-0">
+            <!-- Left Info Panel -->
+            <div class="col-lg-5 p-4 p-md-5 d-flex flex-column justify-content-between text-white login-brand-panel" style="background: linear-gradient(145deg, #3730a3, #1e1b4b);">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-3 mb-md-4">
+                        <i class="bi bi-fingerprint fs-2 text-warning"></i>
+                        <span class="fs-4 fw-bold tracking-tight">dAttendance</span>
+                    </div>
+                    <h3 class="fw-bold mb-2 mb-md-3">Sistem Presensi Kampus & Sekolah Berbasis Cloud</h3>
+                    <p class="text-indigo-200 small opacity-75 mb-3 mb-md-4">
+                        Aplikasi presensi modern terintegrasi dengan Dynamic QR Code (HMAC-SHA256), Geofencing Radius GPS, Manajemen Multi-Role (RBAC), serta Rekapitulasi Real-Time.
+                    </p>
+                    <div class="d-flex flex-column gap-2 small opacity-90 login-features-list">
+                        <div><i class="bi bi-check-circle-fill text-success me-2"></i> Anti Titip Absen via QR Dinamis 30s</div>
+                        <div><i class="bi bi-check-circle-fill text-success me-2"></i> Validasi Koordinat GPS Haversine</div>
+                        <div><i class="bi bi-check-circle-fill text-success me-2"></i> Grid Kehadiran Bulanan (1–31)</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top border-white-10 text-xs opacity-75 small login-brand-footer">
+                    Proyek Cloud Computing &middot; Universitas Muhammadiyah Gresik
+                </div>
+            </div>
+
+            <!-- Right Login Form -->
+            <div class="col-lg-7 p-4 p-md-5 bg-white login-form-panel">
+                <div class="mb-4">
+                    <h4 class="fw-bold text-dark mb-1">Masuk ke Sistem</h4>
+                    <p class="text-muted small">Gunakan akun Anda atau klik tombol demo di bawah.</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show py-2 small" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form action="{{ url_for('auth_views.login') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Username / Email / NIP / NIS</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                            <input type="text" name="identifier" id="identifierInput" class="form-control border-start-0 ps-0" placeholder="e.g. guru_budi atau siswa_riyan" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
+                            <input type="password" name="password" id="passwordInput" class="form-control border-start-0 ps-0" placeholder="Masukkan password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm mb-4">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Masuk Sekarang
+                    </button>
+                </form>
+
+                <!-- Quick Demo Fill -->
+                <div class="border-top pt-3">
+                    <div class="small fw-bold text-secondary mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Pintasan Akun Demo (1-Klik):</div>
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <button type="button" class="btn demo-btn w-100" onclick="fillForm('superadmin', 'admin123')">
+                                <div class="fw-semibold text-dark small"><i class="bi bi-shield-fill text-dark me-1"></i>Super Admin</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">superadmin / admin123</div>
+                            </button>
+                        </div>
+                        <div class="col-sm-6">
+                            <button type="button" class="btn demo-btn w-100" onclick="fillForm('guru_budi', 'guru123')">
+                                <div class="fw-semibold text-success small"><i class="bi bi-person-video3 me-1"></i>Guru (Budi Santoso)</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">guru_budi / guru123</div>
+                            </button>
+                        </div>
+                        <div class="col-sm-6">
+                            <button type="button" class="btn demo-btn w-100" onclick="fillForm('siswa_riyan', 'siswa123')">
+                                <div class="fw-semibold text-warning small"><i class="bi bi-person-badge me-1"></i>Siswa (Riyan Pratama)</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">siswa_riyan / siswa123</div>
+                            </button>
+                        </div>
+                        <div class="col-sm-6">
+                            <button type="button" class="btn demo-btn w-100" onclick="fillForm('ortu_riyan', 'ortu123')">
+                                <div class="fw-semibold text-info small"><i class="bi bi-people-fill me-1"></i>Orang Tua (Bpk. Joko)</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">ortu_riyan / ortu123</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillForm(username, password) {
+            document.getElementById('identifierInput').value = username;
+            document.getElementById('passwordInput').value = password;
+        }
+    </script>
+</body>
+</html>

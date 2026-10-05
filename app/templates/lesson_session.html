@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Sesi Presensi & Layar QR Dinamis{% endblock %}
+{% block page_title %}Layar Proyektor Sesi Presensi{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    {% if not lesson or lesson.status == 'closed' %}
+    <!-- Form to Open New Lesson Session -->
+    <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 650px;">
+        <div class="card-header bg-primary text-white py-3 px-4 rounded-top-4">
+            <h5 class="card-title mb-0 fw-bold"><i class="bi bi-qr-code-scan me-2"></i>Buka Sesi Presensi Baru</h5>
+        </div>
+        <div class="card-body p-4">
+            <p class="text-muted small">
+                Pilih mata kuliah dan kelas untuk memulai sesi. Sistem akan membuat token QR dinamis (HMAC) yang diperbarui setiap 30 detik untuk mencegah titip absen.
+            </p>
+
+            <form id="formOpenLesson">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Kelas</label>
+                    <select class="form-select" id="inputClass" required>
+                        <option value="">-- Pilih Kelas --</option>
+                        {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c.name }} ({{ c.academic_year }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Mata Kuliah / Pelajaran</label>
+                    <select class="form-select" id="inputSubject" required>
+                        <option value="">-- Pilih Mata Kuliah --</option>
+                        {% for s in subjects %}
+                        <option value="{{ s.id }}">{{ s.code }} - {{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">Toleransi Terlambat (Menit)</label>
+                        <input type="number" class="form-control" id="inputTolerance" value="15" min="1">
+                        <div class="form-text" style="font-size: 0.72rem;">Lewat dari menit ini, status otomatis "Terlambat".</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">Radius Geofencing (Meter)</label>
+                        <input type="number" class="form-control" id="inputRadius" value="100" min="10">
+                        <div class="form-text" style="font-size: 0.72rem;">Siswa wajib berada dalam radius ini.</div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info py-2 small d-flex align-items-center gap-2 mb-4">
+                    <i class="bi bi-geo-alt-fill fs-5 text-primary"></i>
+                    <div>
+                        <div class="fw-semibold">Titik Koordinat Kelas:</div>
+                        <div id="gpsStatusText" class="text-muted" style="font-size: 0.75rem;">Mendeteksi GPS guru...</div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm" id="btnSubmitOpen">
+                    <i class="bi bi-play-circle-fill me-1"></i> Mulai Sesi & Tampilkan QR Dinamis
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Active Lesson Projector View -->
+    <div class="row g-4">
+        <!-- QR Code Projector Card -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div class="text-start">
+                        <span class="badge bg-success-subtle text-success px-2 py-1 mb-1">
+                            <span class="pulse-indicator me-1"></span> SESI AKTIF
+                        </span>
+                        <h4 class="fw-bold mb-0 text-dark">{{ lesson.subject.name }}</h4>
+                        <div class="text-muted small">{{ lesson.class_room.name }} &middot; Pengampu: {{ lesson.teacher.full_name }}</div>
+                    </div>
+
+                    <button class="btn btn-danger btn-sm px-3 fw-semibold shadow-sm text-nowrap" id="btnCloseLesson">
+                        <i class="bi bi-stop-circle me-1"></i> Tutup Sesi
+                    </button>
+                </div>
+
+                <!-- Dynamic QR Box -->
+                <div class="my-3">
+                    <div class="qr-frame" style="max-width: 100%;">
+                        <img id="qrImageElement" src="" alt="Dynamic QR Code" style="width: 260px; max-width: 100%; height: auto; aspect-ratio: 1/1; object-fit: contain;">
+                    </div>
+                </div>
+
+                <!-- 30-Second Rotation Progress -->
+                <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                    <i class="bi bi-arrow-repeat text-primary fs-5" id="refreshIcon"></i>
+                    <span class="small fw-semibold text-secondary">QR berganti dalam: <strong id="countdownSec" class="text-danger fs-6">30</strong> detik</span>
+                </div>
+                <div class="progress mb-3 mx-auto" style="height: 6px; max-width: 300px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="qrProgressBar" style="width: 100%;"></div>
+                </div>
+
+                <div class="bg-light p-3 rounded-3 small text-muted text-start mt-auto">
+                    <div><i class="bi bi-info-circle text-primary me-1"></i> <strong>Sistem Anti-Titip Absen:</strong> QR Code menggunakan enkripsi HMAC-SHA256 yang diperbarui otomatis setiap 30 detik. Foto QR yang dikirimkan via chat akan otomatis kedaluwarsa.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Live Monitor -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-people-fill text-primary me-2"></i>Kehadiran Masuk (Live)</h6>
+                        <div class="text-muted text-xs" style="font-size: 0.75rem;">Siswa yang berhasil melakukan validasi QR & GPS</div>
+                    </div>
+                    <span class="badge bg-primary rounded-pill px-3 py-2 fs-6" id="livePresentCount">0 Hadir</span>
+                </div>
+
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>NIS</th>
+                                    <th>Nama Siswa</th>
+                                    <th>Waktu</th>
+                                    <th>Status</th>
+                                    <th>Koreksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="liveAttendanceTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">Menunggu siswa melakukan scan QR...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light py-3 px-4 d-flex justify-content-between align-items-center">
+                    <small class="text-muted"><i class="bi bi-shield-check text-success me-1"></i> Auto-alpa aktif saat sesi ditutup</small>
+                    <button class="btn btn-outline-secondary btn-sm" id="btnRefreshLive">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh Manual
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Modal Koreksi Manual -->
+<div class="modal fade" id="modalKoreksi" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Koreksi Manual Status Kehadiran</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="koreksiAttendanceId">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Status Baru</label>
+                    <select class="form-select" id="koreksiStatus">
+                        <option value="present">Hadir</option>
+                        <option value="late">Terlambat</option>
+                        <option value="sick">Sakit</option>
+                        <option value="permit">Izin</option>
+                        <option value="absent">Alpa</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Alasan Koreksi (Wajib tercatat di Audit Log)</label>
+                    <textarea class="form-control" id="koreksiAlasan" rows="2" placeholder="Contoh: Siswa HP mati, konfirmasi langsung di kelas." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnSimpanKoreksi">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let teacherLat = -7.156556;
+    let teacherLng = 112.655523;
+
+    // Detect GPS
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                teacherLat = pos.coords.latitude;
+                teacherLng = pos.coords.longitude;
+                const statusEl = document.getElementById('gpsStatusText');
+                if (statusEl) statusEl.textContent = `Lat: ${teacherLat.toFixed(6)}, Lng: ${teacherLng.toFixed(6)} (Akurasi: ±${Math.round(pos.coords.accuracy)}m)`;
+            },
+            err => {
+                const statusEl = document.getElementById('gpsStatusText');
+                if (statusEl) statusEl.textContent = `Menggunakan koordinat default kampus (Gresik): Lat ${teacherLat}, Lng ${teacherLng}`;
+            }
+        );
+    }
+
+    {% if not lesson or lesson.status == 'closed' %}
+    // Form Open Lesson
+    document.getElementById('formOpenLesson').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSubmitOpen');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Membuka Sesi...';
+
+        const payload = {
+            class_id: parseInt(document.getElementById('inputClass').value),
+            subject_id: parseInt(document.getElementById('inputSubject').value),
+            late_tolerance_minutes: parseInt(document.getElementById('inputTolerance').value),
+            radius_m: parseFloat(document.getElementById('inputRadius').value),
+            latitude: teacherLat,
+            longitude: teacherLng
+        };
+
+        fetch('/api/v1/lessons', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sesi Presensi Dibuka!',
+                    text: 'Layar proyektor QR dinamis siap digunakan.',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = `/lesson/session?lesson_id=${res.lesson.id}`;
+                });
+            } else {
+                Swal.fire('Gagal', res.error.message || 'Terjadi kesalahan', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-play-circle-fill me-1"></i> Mulai Sesi';
+            }
+        })
+        .catch(err => {
+            Swal.fire('Error', 'Gagal menghubungi server', 'error');
+            btn.disabled = false;
+        });
+    });
+
+    {% else %}
+    // Active Lesson Handling
+    const lessonId = {{ lesson.id }};
+    let countdown = 30;
+    const countdownEl = document.getElementById('countdownSec');
+    const progressBar = document.getElementById('qrProgressBar');
+    const qrImg = document.getElementById('qrImageElement');
+
+    function fetchLatestQR() {
+        fetch(`/api/v1/lessons/${lessonId}/qr`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.image) {
+                    qrImg.src = res.image;
+                    countdown = res.rotation_seconds || 30;
+                }
+            })
+            .catch(e => console.error("Error fetching QR:", e));
+    }
+
+    function fetchLiveAttendances() {
+        fetch(`/api/v1/lessons/${lessonId}/live`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    const tbody = document.getElementById('liveAttendanceTableBody');
+                    document.getElementById('livePresentCount').textContent = `${res.stats.present + res.stats.late} Hadir`;
+
+                    if (res.attendances.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Belum ada siswa yang presensi.</td></tr>';
+                    } else {
+                        tbody.innerHTML = res.attendances.map(a => {
+                            let badgeClass = 'bg-secondary';
+                            let statusText = a.status.toUpperCase();
+                            if (a.status === 'present') { badgeClass = 'bg-success'; statusText = 'Hadir'; }
+                            else if (a.status === 'late') { badgeClass = 'bg-warning text-dark'; statusText = 'Terlambat'; }
+                            else if (a.status === 'sick') { badgeClass = 'bg-info'; statusText = 'Sakit'; }
+                            else if (a.status === 'permit') { badgeClass = 'bg-primary'; statusText = 'Izin'; }
+                            else if (a.status === 'absent') { badgeClass = 'bg-danger'; statusText = 'Alpa'; }
+
+                            let flagNotice = a.is_flagged ? `<div class="badge bg-danger mt-1" style="font-size:0.65rem;" title="${a.flag_reason}"><i class="bi bi-exclamation-triangle-fill"></i> Flagged Device</div>` : '';
+
+                            return `
+                                <tr>
+                                    <td class="font-monospace small">${a.student_nis}</td>
+                                    <td>
+                                        <div class="fw-semibold">${a.student_name}</div>
+                                        ${flagNotice}
+                                    </td>
+                                    <td class="small text-muted">${a.checked_in_at ? a.checked_in_at.slice(11, 19) : '-'}</td>
+                                    <td><span class="badge ${badgeClass}">${statusText}</span></td>
+                                    <td>
+                                        <button class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.75rem;" onclick="bukaKoreksiModal(${a.id}, '${a.status}')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                }
+            })
+            .catch(e => console.error(e));
+    }
+
+    // Timer Interval
+    setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+            fetchLatestQR();
+            countdown = 30;
+        }
+        if (countdownEl) countdownEl.textContent = countdown;
+        if (progressBar) progressBar.style.width = `${(countdown / 30) * 100}%`;
+    }, 1000);
+
+    // Poll live attendance every 4 seconds
+    setInterval(fetchLiveAttendances, 4000);
+
+    // Initial fetch
+    fetchLatestQR();
+    fetchLiveAttendances();
+
+    document.getElementById('btnRefreshLive').addEventListener('click', fetchLiveAttendances);
+
+    // Close Lesson
+    document.getElementById('btnCloseLesson').addEventListener('click', function() {
+        Swal.fire({
+            title: 'Tutup Sesi Presensi?',
+            text: 'Semua siswa yang belum tercatat presensi akan otomatis berstatus ALPA dan notifikasi akan dikirim ke orang tua.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Tutup Sesi & Auto-Alpa',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/api/v1/lessons/${lessonId}/close`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        Swal.fire('Sesi Ditutup!', res.message, 'success').then(() => {
+                            window.location.href = '/dashboard';
+                        });
+                    } else {
+                        Swal.fire('Error', res.error.message, 'error');
+                    }
+                });
+            }
+        });
+    });
+
+    // Koreksi manual
+    const modalKoreksi = new bootstrap.Modal(document.getElementById('modalKoreksi'));
+    window.bukaKoreksiModal = function(attId, curStatus) {
+        document.getElementById('koreksiAttendanceId').value = attId;
+        document.getElementById('koreksiStatus').value = curStatus;
+        document.getElementById('koreksiAlasan').value = '';
+        modalKoreksi.show();
+    };
+
+    document.getElementById('btnSimpanKoreksi').addEventListener('click', function() {
+        const attId = document.getElementById('koreksiAttendanceId').value;
+        const status = document.getElementById('koreksiStatus').value;
+        const reason = document.getElementById('koreksiAlasan').value.trim();
+
+        if (!reason) {
+            Swal.fire('Perhatian', 'Alasan koreksi wajib diisi untuk pencatatan audit log.', 'warning');
+            return;
+        }
+
+        fetch(`/api/v1/attendance/${attId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status, reason: reason })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                modalKoreksi.hide();
+                Swal.fire('Berhasil', res.message, 'success');
+                fetchLiveAttendances();
+            } else {
+                Swal.fire('Gagal', res.error.message, 'error');
+            }
+        });
+    });
+
+    {% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Presensi{% endblock %}
+{% block page_title %}Dashboard E-Absensi{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- Active Lesson Alert if Teacher -->
+    {% if active_lesson %}
+    <div class="alert alert-primary d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between p-3 rounded-3 shadow-sm mb-4 gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <span class="pulse-indicator flex-shrink-0"></span>
+            <div>
+                <div class="fw-bold">Sesi Presensi Sedang Aktif: {{ active_lesson.subject.name }} ({{ active_lesson.class_room.name }})</div>
+                <div class="small opacity-75">Dibuka sejak {{ active_lesson.open_at.strftime('%H:%M') }} WIB &middot; QR Code dinamis sedang berputar</div>
+            </div>
+        </div>
+        <a href="{{ url_for('views.lesson_session', lesson_id=active_lesson.id) }}" class="btn btn-sm btn-light fw-semibold shadow-sm text-nowrap align-self-stretch align-self-sm-auto text-center">
+            <i class="bi bi-display me-1"></i> Buka Layar QR
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- 4 Stat Cards Replicating Gambar 4 -->
+    <div class="row g-3 mb-4">
+        <!-- Card 1: Users -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-title">USERS</div>
+                    <div class="stat-value" id="statUsers">-</div>
+                    <div class="stat-desc">Jumlah Pengguna Sistem</div>
+                </div>
+                <div class="stat-icon bg-primary-subtle text-primary">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Siswa -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-title">SISWA</div>
+                    <div class="stat-value text-indigo" id="statSiswa">-</div>
+                    <div class="stat-desc">Jumlah Siswa Aktif</div>
+                </div>
+                <div class="stat-icon bg-indigo-subtle text-primary" style="background-color: #ede9fe; color: #6366f1;">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Absensi Kehadiran with H, I, S, A pills -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <div>
+                        <div class="stat-title">ABSENSI KEHADIRAN</div>
+                        <div class="stat-value text-success" id="statTotalAbsen">-</div>
+                    </div>
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-check2-circle"></i>
+                    </div>
+                </div>
+                <div class="stat-desc mb-2">Jml yg mengisi Kehadiran Hari Ini</div>
+                <div class="d-flex gap-1 flex-wrap">
+                    <span class="badge-substat badge-h" title="Hadir">H <span id="badgeH">0</span></span>
+                    <span class="badge-substat badge-i" title="Izin">I <span id="badgeI">0</span></span>
+                    <span class="badge-substat badge-s" title="Sakit">S <span id="badgeS">0</span></span>
+                    <span class="badge-substat badge-a" title="Alpa">A <span id="badgeA">0</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Belum Absensi -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="stat-title">BELUM ABSENSI</div>
+                    <div class="stat-value text-danger" id="statBelumAbsen">-</div>
+                    <div class="stat-desc">Jml Belum Mengisi Absensi</div>
+                </div>
+                <div class="stat-icon bg-danger-subtle text-danger">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Absensi Card (Matching Gambar 4 Layout) -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <!-- Header with Download Button -->
+        <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2" style="background: linear-gradient(90deg, #4338ca 0%, #3b82f6 100%); color: white; border-radius: 0.75rem 0.75rem 0 0;">
+            <div class="fw-bold fs-6">
+                <i class="bi bi-graph-up me-2"></i>Chart Absensi
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('report.export_excel') }}" class="btn btn-sm btn-light fw-semibold text-primary">
+                    <i class="bi bi-file-earmark-excel-fill text-success me-1"></i> Export Excel
+                </a>
+                <button type="button" class="btn btn-sm btn-danger fw-semibold shadow-sm" id="btnDownloadChart">
+                    <i class="bi bi-download me-1"></i> Download Chart
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body p-3 p-md-4">
+            <!-- Filter Bar -->
+            <div class="row g-3 align-items-center mb-4 p-3 bg-light rounded-3 border">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1">Kelas</label>
+                    <select class="form-select form-select-sm" id="filterClass">
+                        <option value="all">-Semua-</option>
+                        {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted mb-1">Bulan</label>
+                    <select class="form-select form-select-sm" id="filterMonth">
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11" selected>November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">Tahun</label>
+                    <input type="number" class="form-control form-control-sm" id="filterYear" value="2025">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-sm btn-primary w-100 py-1" id="btnApplyFilter">
+                        <i class="bi bi-filter"></i> <span class="d-md-none ms-1">Terapkan Filter</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chart Title Subheader -->
+            <div class="text-center mb-3">
+                <div class="fw-bold text-dark fs-6" id="chartHeading">Chart Absensi</div>
+                <div class="text-muted small" id="chartSubHeading">Kelas -Semua- Periode November 2025</div>
+            </div>
+
+            <!-- Chart Graphics Row -->
+            <div class="row g-4 align-items-center">
+                <!-- Line Chart (Left) -->
+                <div class="col-lg-8">
+                    <div style="height: 340px; position: relative;">
+                        <canvas id="attendanceLineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Pie Chart & Rekapitulasi Table (Right) -->
+                <div class="col-lg-4">
+                    <div class="d-flex flex-column align-items-center">
+                        <div style="height: 180px; width: 180px; position: relative; margin-bottom: 1rem;">
+                            <canvas id="attendancePieChart"></canvas>
+                        </div>
+
+                        <!-- Rekapitulasi Table -->
+                        <div class="w-100">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.825rem;">
+                                    <thead class="table-secondary">
+                                        <tr>
+                                            <th>Status</th>
+                                            <th>Jumlah</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="text-start ps-3"><span class="badge bg-success me-1">&nbsp;</span> Hadir</td>
+                                            <td class="fw-bold" id="tableHadir">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-start ps-3"><span class="badge bg-warning me-1">&nbsp;</span> Sakit</td>
+                                            <td class="fw-bold" id="tableSakit">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-start ps-3"><span class="badge bg-primary me-1">&nbsp;</span> Izin</td>
+                                            <td class="fw-bold" id="tableIzin">0</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-start ps-3"><span class="badge bg-danger me-1">&nbsp;</span> Alpa</td>
+                                            <td class="fw-bold" id="tableAlpa">0</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Shortcuts & Recent Attendances -->
+    <div class="row g-4">
+        <!-- Quick Actions Card -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-3 h-100">
+                <div class="card-header bg-white fw-bold py-3 border-bottom">
+                    <i class="bi bi-lightning-charge text-warning me-2"></i>Aksi Cepat
+                </div>
+                <div class="card-body p-3 d-flex flex-column gap-2">
+                    {% if user.role in ['teacher', 'admin', 'superadmin'] %}
+                    <a href="{{ url_for('views.lesson_session') }}" class="btn btn-outline-primary text-start py-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-qr-code fs-5"></i>
+                        <div>
+                            <div class="fw-bold small">Buka Sesi Presensi Baru</div>
+                            <div class="text-muted text-xs" style="font-size: 0.72rem;">Buat token QR dinamis di proyektor kelas</div>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                    {% if user.role == 'student' %}
+                    <a href="{{ url_for('views.student_scan') }}" class="btn btn-outline-warning text-dark text-start py-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-camera-fill fs-5 text-warning"></i>
+                        <div>
+                            <div class="fw-bold small">Scan QR Kehadiran</div>
+                            <div class="text-muted text-xs" style="font-size: 0.72rem;">Presensi langsung lewat kamera HP/Laptop</div>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                    <a href="{{ url_for('views.attendance_details') }}" class="btn btn-outline-secondary text-start py-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar-check fs-5 text-info"></i>
+                        <div>
+                            <div class="fw-bold small">Lihat Grid Bulanan (1-31)</div>
+                            <div class="text-muted text-xs" style="font-size: 0.72rem;">Matriks absensi per siswa & per mata kuliah</div>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('views.leave_requests_page') }}" class="btn btn-outline-success text-start py-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-medical fs-5"></i>
+                        <div>
+                            <div class="fw-bold small">Pengajuan Izin / Sakit</div>
+                            <div class="text-muted text-xs" style="font-size: 0.72rem;">Unggah surat dokter / permohonan dispensasi</div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Attendances Activity -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-3 h-100">
+                <div class="card-header bg-white fw-bold py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <div><i class="bi bi-activity text-primary me-2"></i>Log Kehadiran Terkini</div>
+                    <span class="badge bg-light text-secondary border">Real-time</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Siswa</th>
+                                    <th>Mata Pelajaran</th>
+                                    <th>Waktu</th>
+                                    <th>Status</th>
+                                    <th>Metode</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if recent_attendances %}
+                                    {% for att in recent_attendances %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">{{ att.student.full_name }}</div>
+                                            <div class="text-muted text-xs" style="font-size: 0.72rem;">NIS: {{ att.student.nis }}</div>
+                                        </td>
+                                        <td>{{ att.lesson.subject.name }}</td>
+                                        <td>{{ att.checked_in_at.strftime('%d/%m %H:%M') }}</td>
+                                        <td>
+                                            {% if att.status == 'present' %}
+                                                <span class="badge bg-success">Hadir</span>
+                                            {% elif att.status == 'late' %}
+                                                <span class="badge bg-warning text-dark">Terlambat</span>
+                                            {% elif att.status == 'sick' %}
+                                                <span class="badge bg-info">Sakit</span>
+                                            {% elif att.status == 'permit' %}
+                                                <span class="badge bg-primary">Izin</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Alpa</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-light text-dark border">{{ att.method | upper }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">Belum ada riwayat kehadiran tercatat.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let lineChartInstance = null;
+    let pieChartInstance = null;
+
+    // Load Summary Stats
+    function loadSummary() {
+        fetch('/api/v1/dashboard/summary')
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    const d = res.data;
+                    document.getElementById('statUsers').textContent = d.total_users;
+                    document.getElementById('statSiswa').textContent = d.total_students;
+                    document.getElementById('statTotalAbsen').textContent = d.total_absen_hari_ini;
+                    document.getElementById('badgeH').textContent = d.hadir_hari_ini;
+                    document.getElementById('badgeI').textContent = d.izin_hari_ini;
+                    document.getElementById('badgeS').textContent = d.sakit_hari_ini;
+                    document.getElementById('badgeA').textContent = d.alpa_hari_ini;
+                    document.getElementById('statBelumAbsen').textContent = d.belum_absen_hari_ini;
+                }
+            })
+            .catch(e => console.error(e));
+    }
+
+    // Load Chart Data
+    function loadChart() {
+        const classId = document.getElementById('filterClass').value;
+        const month = document.getElementById('filterMonth').value;
+        const year = document.getElementById('filterYear').value;
+        const monthName = document.getElementById('filterMonth').options[document.getElementById('filterMonth').selectedIndex].text;
+        const className = document.getElementById('filterClass').options[document.getElementById('filterClass').selectedIndex].text;
+
+        document.getElementById('chartSubHeading').textContent = `Kelas ${className} Periode ${monthName} ${year}`;
+
+        fetch(`/api/v1/reports/attendance?class_id=${classId}&month=${month}&year=${year}`)
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    renderCharts(res.data);
+                }
+            })
+            .catch(e => console.error(e));
+    }
+
+    function renderCharts(data) {
+        // Update table summary
+        document.getElementById('tableHadir').textContent = data.totals.hadir;
+        document.getElementById('tableSakit').textContent = data.totals.sakit;
+        document.getElementById('tableIzin').textContent = data.totals.izin;
+        document.getElementById('tableAlpa').textContent = data.totals.alpa;
+
+        // Line Chart
+        const ctxLine = document.getElementById('attendanceLineChart').getContext('2d');
+        if (lineChartInstance) lineChartInstance.destroy();
+
+        lineChartInstance = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Hadir',
+                        data: data.hadir,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.3,
+                        pointRadius: 4,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Sakit',
+                        data: data.sakit,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        pointRadius: 3,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Izin',
+                        data: data.izin,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        pointRadius: 3,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Alpa',
+                        data: data.alpa,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        pointRadius: 3,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Pie Chart
+        const ctxPie = document.getElementById('attendancePieChart').getContext('2d');
+        if (pieChartInstance) pieChartInstance.destroy();
+
+        const grandTotal = data.totals.grand_total;
+        const pieData = grandTotal > 0 ? [data.totals.hadir, data.totals.sakit, data.totals.izin, data.totals.alpa] : [1, 0, 0, 0];
+        const pieColors = grandTotal > 0 ? ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'] : ['#e2e8f0'];
+
+        pieChartInstance = new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Hadir', 'Sakit', 'Izin', 'Alpa'],
+                datasets: [{
+                    data: pieData,
+                    backgroundColor: pieColors,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+
+    document.getElementById('btnApplyFilter').addEventListener('click', loadChart);
+    document.getElementById('btnDownloadChart').addEventListener('click', function() {
+        if (!lineChartInstance) return;
+        const imageURI = lineChartInstance.toBase64Image();
+        const a = document.createElement('a');
+        a.href = imageURI;
+        a.download = `Chart_Absensi_${new Date().toISOString().slice(0, 10)}.png`;
+        a.click();
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSummary();
+        loadChart();
+    });
+</script>
+{% endblock %}

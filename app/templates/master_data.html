@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}Data Master & Audit Log{% endblock %}
+{% block page_title %}Administrasi Data Master & Audit Log{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- Nav Tabs -->
+    <ul class="nav nav-pills nav-pills-mobile-scroll mb-4 bg-white p-2 rounded-3 shadow-sm border" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="tab-classes-btn" data-bs-toggle="pill" data-bs-target="#tab-classes" type="button" role="tab">
+                <i class="bi bi-building me-1"></i> Kelas ({{ classes | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-subjects-btn" data-bs-toggle="pill" data-bs-target="#tab-subjects" type="button" role="tab">
+                <i class="bi bi-book me-1"></i> Mata Kuliah ({{ subjects | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-teachers-btn" data-bs-toggle="pill" data-bs-target="#tab-teachers" type="button" role="tab">
+                <i class="bi bi-person-video3 me-1"></i> Guru/Dosen ({{ teachers | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-students-btn" data-bs-toggle="pill" data-bs-target="#tab-students" type="button" role="tab">
+                <i class="bi bi-mortarboard me-1"></i> Siswa/Mahasiswa ({{ students | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="tab-schedules-btn" data-bs-toggle="pill" data-bs-target="#tab-schedules" type="button" role="tab">
+                <i class="bi bi-calendar3 me-1"></i> Jadwal ({{ schedules | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold text-danger" id="tab-audit-btn" data-bs-toggle="pill" data-bs-target="#tab-audit" type="button" role="tab">
+                <i class="bi bi-shield-check me-1"></i> Audit Log
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="pills-tabContent">
+
+        <!-- TAB KELAS -->
+        <div class="tab-pane fade show active" id="tab-classes" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-building text-primary me-2"></i>Daftar Kelas</h6>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddClass">
+                        <i class="bi bi-plus-lg me-1"></i> Tambah Kelas
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nama Kelas</th>
+                                    <th>Tingkat / Semester</th>
+                                    <th>Tahun Ajaran</th>
+                                    <th>Wali Kelas / DPA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in classes %}
+                                <tr>
+                                    <td>{{ c.id }}</td>
+                                    <td class="fw-bold">{{ c.name }}</td>
+                                    <td>{{ c.grade_level }}</td>
+                                    <td>{{ c.academic_year }}</td>
+                                    <td>{{ c.homeroom_teacher.full_name if c.homeroom_teacher else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB MATA KULIAH -->
+        <div class="tab-pane fade" id="tab-subjects" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-book text-primary me-2"></i>Daftar Mata Kuliah / Pelajaran</h6>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddSubject">
+                        <i class="bi bi-plus-lg me-1"></i> Tambah Mata Kuliah
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Kode</th>
+                                    <th>Nama Mata Kuliah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in subjects %}
+                                <tr>
+                                    <td>{{ s.id }}</td>
+                                    <td><span class="badge bg-secondary font-monospace">{{ s.code }}</span></td>
+                                    <td class="fw-semibold">{{ s.name }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB GURU -->
+        <div class="tab-pane fade" id="tab-teachers" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-video3 text-primary me-2"></i>Daftar Guru / Dosen Pengampu</h6>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddTeacher">
+                        <i class="bi bi-plus-lg me-1"></i> Tambah Guru
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>NIP</th>
+                                    <th>Nama Lengkap</th>
+                                    <th>Email</th>
+                                    <th>No. Telepon</th>
+                                    <th>Mata Kuliah Diampu</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in teachers %}
+                                <tr>
+                                    <td class="font-monospace small">{{ t.nip }}</td>
+                                    <td class="fw-semibold">{{ t.full_name }}</td>
+                                    <td>{{ t.email }}</td>
+                                    <td>{{ t.phone or '-' }}</td>
+                                    <td>
+                                        {% for sb in t.subjects %}
+                                        <span class="badge bg-light text-dark border">{{ sb.name }}</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB SISWA -->
+        <div class="tab-pane fade" id="tab-students" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-mortarboard text-primary me-2"></i>Daftar Siswa / Mahasiswa</h6>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddStudent">
+                        <i class="bi bi-plus-lg me-1"></i> Tambah Siswa
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>NIS</th>
+                                    <th>Nama Siswa</th>
+                                    <th>Kelas</th>
+                                    <th>Orang Tua / Wali</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for st in students %}
+                                <tr>
+                                    <td class="font-monospace small">{{ st.nis }}</td>
+                                    <td class="fw-semibold">{{ st.full_name }}</td>
+                                    <td><span class="badge bg-info-subtle text-info">{{ st.class_room.name if st.class_room else '-' }}</span></td>
+                                    <td>{{ st.parent.full_name if st.parent else '-' }}</td>
+                                    <td><span class="badge bg-success">{{ st.status | upper }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB JADWAL -->
+        <div class="tab-pane fade" id="tab-schedules" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-calendar3 text-primary me-2"></i>Jadwal Perkuliahan</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Hari</th>
+                                    <th>Jam</th>
+                                    <th>Kelas</th>
+                                    <th>Mata Kuliah</th>
+                                    <th>Dosen Pengampu</th>
+                                    <th>Ruangan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sc in schedules %}
+                                <tr>
+                                    <td class="fw-bold">{{ sc.day_of_week }}</td>
+                                    <td><span class="badge bg-secondary">{{ sc.start_time }} - {{ sc.end_time }}</span></td>
+                                    <td>{{ sc.class_room.name }}</td>
+                                    <td class="fw-semibold">{{ sc.subject.name }}</td>
+                                    <td>{{ sc.teacher.full_name }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ sc.room }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB AUDIT LOG -->
+        <div class="tab-pane fade" id="tab-audit" role="tabpanel">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-shield-check text-danger me-2"></i>Audit Trail Log Sistem</h6>
+                        <div class="text-muted text-xs" style="font-size: 0.72rem;">Setiap perubahan data dan akses presensi tercatat otomatis untuk kepatuhan keamanan</div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.825rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Waktu (UTC)</th>
+                                    <th>Pengguna</th>
+                                    <th>Aksi</th>
+                                    <th>Tabel</th>
+                                    <th>ID Record</th>
+                                    <th>Detail / Perubahan</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in audit_logs %}
+                                <tr>
+                                    <td class="text-muted small">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>{{ log.user.name if log.user else 'System' }}</td>
+                                    <td><span class="badge bg-dark">{{ log.action }}</span></td>
+                                    <td><code>{{ log.table_name }}</code></td>
+                                    <td>{{ log.record_id or '-' }}</td>
+                                    <td>
+                                        {% if log.new_value %}
+                                            <span class="text-success small">{{ log.new_value }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-muted small">{{ log.ip or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal Tambah Kelas -->
+<div class="modal fade" id="modalAddClass" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Tambah Kelas Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Nama Kelas</label>
+                    <input type="text" id="newClassName" class="form-control" placeholder="e.g. TI-5C Mobile" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Tingkat / Semester</label>
+                    <input type="text" id="newClassGrade" class="form-control" placeholder="e.g. Semester 5">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Tahun Akademik</label>
+                    <input type="text" id="newClassYear" class="form-control" value="2025/2026">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnSaveClass">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tambah Subject -->
+<div class="modal fade" id="modalAddSubject" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Tambah Mata Kuliah Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Kode Mata Kuliah</label>
+                    <input type="text" id="newSubCode" class="form-control" placeholder="e.g. CC502" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Nama Mata Kuliah</label>
+                    <input type="text" id="newSubName" class="form-control" placeholder="e.g. Arsitektur Cloud Computing" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnSaveSubject">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.getElementById('btnSaveClass').addEventListener('click', function() {
+        const name = document.getElementById('newClassName').value.trim();
+        const grade = document.getElementById('newClassGrade').value.trim();
+        const year = document.getElementById('newClassYear').value.trim();
+
+        if (!name) {
+            Swal.fire('Perhatian', 'Nama kelas wajib diisi', 'warning');
+            return;
+        }
+
+        fetch('/api/v1/classes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, grade_level: grade, academic_year: year })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                Swal.fire('Berhasil', 'Kelas baru berhasil ditambahkan', 'success').then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Gagal', res.error.message, 'error');
+            }
+        });
+    });
+
+    document.getElementById('btnSaveSubject').addEventListener('click', function() {
+        const code = document.getElementById('newSubCode').value.trim();
+        const name = document.getElementById('newSubName').value.trim();
+
+        if (!code || !name) {
+            Swal.fire('Perhatian', 'Kode dan nama mata kuliah wajib diisi', 'warning');
+            return;
+        }
+
+        fetch('/api/v1/subjects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code, name: name })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                Swal.fire('Berhasil', 'Mata kuliah baru berhasil ditambahkan', 'success').then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Gagal', res.error.message, 'error');
+            }
+        });
+    });
+</script>
+{% endblock %}

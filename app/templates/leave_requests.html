@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Pengajuan Izin & Sakit{% endblock %}
+{% block page_title %}Pengajuan Izin & Sakit Siswa{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row g-4">
+
+        <!-- Form Submission (For Students) -->
+        {% if user.role == 'student' %}
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Form Pengajuan Izin</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form id="formLeave" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Jenis Pengajuan</label>
+                            <select class="form-select" name="type" required>
+                                <option value="sick">Sakit (Melampirkan Surat Dokter)</option>
+                                <option value="permit">Izin / Keperluan Mendesak</option>
+                            </select>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Dari Tanggal</label>
+                                <input type="date" class="form-control" name="date_from" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Sampai Tanggal</label>
+                                <input type="date" class="form-control" name="date_to" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Alasan Lengkap</label>
+                            <textarea class="form-control" name="reason" rows="3" placeholder="Jelaskan alasan ketidakhadiran..." required></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small fw-semibold">Lampiran Bukti (Foto/PDF)</label>
+                            <input type="file" class="form-control" name="attachment" accept=".png,.jpg,.jpeg,.pdf">
+                            <div class="form-text" style="font-size: 0.72rem;">Maksimal 5MB (Format: JPG, PNG, PDF)</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 fw-semibold shadow-sm" id="btnSubmitLeave">
+                            <i class="bi bi-send-fill me-1"></i> Kirim Pengajuan
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- List of Leave Requests -->
+        <div class="{% if user.role == 'student' %}col-lg-8{% else %}col-12{% endif %}">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Daftar Pengajuan Izin/Sakit</h6>
+                    <span class="badge bg-light text-dark border">{{ leaves | length }} Data</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Siswa</th>
+                                    <th>Jenis</th>
+                                    <th>Periode</th>
+                                    <th>Alasan & Bukti</th>
+                                    <th>Status</th>
+                                    {% if user.role in ['teacher', 'admin', 'superadmin'] %}
+                                    <th>Aksi Review</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if leaves %}
+                                    {% for req in leaves %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">{{ req.student.full_name }}</div>
+                                            <div class="text-muted text-xs" style="font-size: 0.72rem;">NIS: {{ req.student.nis }}</div>
+                                        </td>
+                                        <td>
+                                            {% if req.type == 'sick' %}
+                                                <span class="badge bg-warning text-dark">Sakit</span>
+                                            {% else %}
+                                                <span class="badge bg-primary">Izin</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="fw-medium">{{ req.date_from.strftime('%d/%m/%Y') }}</div>
+                                            <div class="text-muted text-xs" style="font-size: 0.72rem;">s.d. {{ req.date_to.strftime('%d/%m/%Y') }}</div>
+                                        </td>
+                                        <td>
+                                            <div>{{ req.reason }}</div>
+                                            {% if req.attachment_path %}
+                                            <a href="{{ url_for('static', filename='uploads/' + req.attachment_path) }}" target="_blank" class="small text-decoration-none">
+                                                <i class="bi bi-paperclip"></i> Lihat Dokumen Bukti
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if req.status == 'approved' %}
+                                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Disetujui</span>
+                                            {% elif req.status == 'rejected' %}
+                                                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Ditolak</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary"><i class="bi bi-hourglass-split me-1"></i>Menunggu</span>
+                                            {% endif %}
+                                        </td>
+
+                                        {% if user.role in ['teacher', 'admin', 'superadmin'] %}
+                                        <td>
+                                            {% if req.status == 'pending' %}
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-success" onclick="reviewLeave({{ req.id }}, 'approved')">
+                                                    <i class="bi bi-check-lg"></i> Setuju
+                                                </button>
+                                                <button class="btn btn-outline-danger" onclick="reviewLeave({{ req.id }}, 'rejected')">
+                                                    <i class="bi bi-x-lg"></i> Tolak
+                                                </button>
+                                            </div>
+                                            {% else %}
+                                            <span class="text-muted text-xs" style="font-size: 0.72rem;">Oleh {{ req.reviewer.name if req.reviewer else 'Guru' }}</span>
+                                            {% endif %}
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">Belum ada permohonan izin/sakit.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    {% if user.role == 'student' %}
+    document.getElementById('formLeave').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const btn = document.getElementById('btnSubmitLeave');
+        btn.disabled = true;
+
+        fetch('/api/v1/leave-requests', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                Swal.fire('Berhasil', res.message, 'success').then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Gagal', res.error.message || 'Terjadi kesalahan', 'error');
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+            btn.disabled = false;
+        });
+    });
+    {% endif %}
+
+    {% if user.role in ['teacher', 'admin', 'superadmin'] %}
+    window.reviewLeave = function(requestId, status) {
+        const title = status === 'approved' ? 'Setujui Pengajuan?' : 'Tolak Pengajuan?';
+        const confirmBtn = status === 'approved' ? 'Setujui' : 'Tolak';
+        const color = status === 'approved' ? '#10b981' : '#ef4444';
+
+        Swal.fire({
+            title: title,
+            text: status === 'approved' ? 'Status presensi siswa pada jadwal di rentang tanggal ini otomatis terisi Sakit/Izin.' : 'Pengajuan ini akan ditolak.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: color,
+            confirmButtonText: confirmBtn,
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/api/v1/leave-requests/${requestId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: status })
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        Swal.fire('Berhasil', res.message, 'success').then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Gagal', res.error.message, 'error');
+                    }
+                });
+            }
+        });
+    };
+    {% endif %}
+</script>
+{% endblock %}
